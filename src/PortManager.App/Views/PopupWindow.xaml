@@ -1,0 +1,352 @@
+<Window x:Class="PortManager.Views.PopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:PortManager.Models"
+        mc:Ignorable="d"
+        Title="Port Manager"
+        Width="386"
+        Height="510"
+        MinWidth="386"
+        MinHeight="420"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Deactivated="OnDeactivated"
+        PreviewKeyDown="OnPreviewKeyDown"
+        Closing="OnClosing">
+    <Border Margin="6"
+            CornerRadius="8"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.3" Color="#000000" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="8,7,7,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Port Manager"
+                           VerticalAlignment="Center"
+                           FontSize="13"
+                           FontWeight="Bold" />
+
+                <Border Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Padding="6,2"
+                        VerticalAlignment="Center"
+                        CornerRadius="4"
+                        Background="{DynamicResource SurfaceBrush}">
+                    <TextBlock Text="{Binding ListenerCountText}"
+                               FontFamily="Cascadia Mono, Consolas"
+                               FontSize="9"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Border>
+
+                <Button Grid.Column="3"
+                        Style="{StaticResource IconButtonStyle}"
+                        Command="{Binding RefreshCommand}"
+                        ToolTip="Refresh active ports"
+                        AutomationProperties.Name="Refresh active ports">
+                    <TextBlock Text="&#xE72C;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="12" />
+                </Button>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    Height="34"
+                    Margin="8,0,8,7"
+                    CornerRadius="5"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="10,0,0,0"
+                               Text="&#xE721;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                    <Grid Grid.Column="1" Margin="8,0,8,0">
+                        <TextBox x:Name="SearchTextBox"
+                                 Padding="0,8"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderThickness="0"
+                                 FontFamily="Segoe UI Variable Text, Segoe UI"
+                                 FontSize="11"
+                                 ToolTip="Search by port, service, framework, PID, process, or address"
+                                 AutomationProperties.Name="Search ports or services" />
+                        <TextBlock Text="Port, service or PID..."
+                                   IsHitTestVisible="False"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11"
+                                   Visibility="{Binding IsSearchEmpty, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="2" Margin="8,0,8,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding AllFilterText}"
+                            Style="{StaticResource FilterButtonStyle}"
+                            Tag="{Binding IsAllSelected}"
+                            Command="{Binding ShowAllCommand}"
+                            AutomationProperties.Name="Show all listeners" />
+                    <Button Content="{Binding DevFilterText}"
+                            Style="{StaticResource FilterButtonStyle}"
+                            Tag="{Binding IsDevSelected}"
+                            Command="{Binding ShowDevCommand}"
+                            AutomationProperties.Name="Show development listeners" />
+                    <Button Content="{Binding OtherFilterText}"
+                            Style="{StaticResource FilterButtonStyle}"
+                            Tag="{Binding IsOtherSelected}"
+                            Command="{Binding ShowOtherCommand}"
+                            AutomationProperties.Name="Show other listeners" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            ToolTip="Sorted by port"
+                            AutomationProperties.Name="Sorted by port">
+                    <TextBlock Text="&#xE71C;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="9"
+                               Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Margin="5,0,0,0"
+                               Text="Port"
+                               FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="3">
+                <ProgressBar Height="2"
+                             IsIndeterminate="True"
+                             Background="Transparent"
+                             Foreground="{DynamicResource AccentBrush}"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <Border Margin="8,0,8,7"
+                        Padding="9,7"
+                        CornerRadius="5"
+                        Background="{DynamicResource DangerSoftBrush}"
+                        Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="{DynamicResource DangerBrush}"
+                               TextWrapping="Wrap"
+                               FontSize="10" />
+                </Border>
+            </StackPanel>
+
+            <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,0,1">
+                    <Grid Margin="8,0,7,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="32" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="PORT"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource MutedBrush}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="PROCESS"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource MutedBrush}" />
+                        <TextBlock Grid.Column="2"
+                                   Text="ACTIVE"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource MutedBrush}" />
+                    </Grid>
+                </Border>
+
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Listeners}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         AutomationProperties.Name="Active TCP listeners">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="RowBorder"
+                                                MinHeight="45"
+                                                Padding="8,5"
+                                                Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:PortListener}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="72" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="66" />
+                                    <ColumnDefinition Width="32" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            ToolTip="{Binding DetailsToolTip}">
+                                    <Ellipse Width="5" Height="5" Margin="1,0,6,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Category}" Value="{x:Static models:PortCategory.Dev}">
+                                                        <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding Port, StringFormat=:{0}}"
+                                               FontFamily="Cascadia Mono, Consolas"
+                                               FontSize="12"
+                                               FontWeight="SemiBold" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1"
+                                            Margin="0,0,7,0"
+                                            VerticalAlignment="Center"
+                                            ToolTip="{Binding DetailsToolTip}">
+                                    <TextBlock Text="{Binding ServiceName}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <DockPanel Margin="0,1,0,0" LastChildFill="True">
+                                        <TextBlock Text="{Binding FrameworkName}"
+                                                   Margin="0,0,4,0"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="8"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="Text" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </Trigger>
+                                                        <Trigger Property="Text" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding ProcessDisplay}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="8"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="2"
+                                           Margin="0,0,5,0"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding LastActiveDisplay}"
+                                           ToolTip="{Binding LastActiveToolTip}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontFamily="Cascadia Mono, Consolas"
+                                           FontSize="8"
+                                           TextWrapping="Wrap" />
+
+                                <Button Grid.Column="3"
+                                        Content="×"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource KillButtonStyle}"
+                                        Command="{Binding DataContext.KillCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip="{Binding KillToolTip}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        AutomationProperties.Name="{Binding Port, StringFormat=Kill process using port {0}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding ShowEmptyState, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="&#xE71E;"
+                               HorizontalAlignment="Center"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="22"
+                               Foreground="{DynamicResource MutedBrush}" />
+                    <TextBlock Text="{Binding EmptyMessage}"
+                               Margin="0,8,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
