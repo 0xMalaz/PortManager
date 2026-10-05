@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using PortManager.Models;
 using PortManager.Services;
 using PortManager.ViewModels;
@@ -158,9 +159,75 @@ public sealed class PopupWindowViewModelTests
         });
     }
 
-    private static PopupWindowViewModel CreateViewModel(IReadOnlyList<PortListener> listeners)
+    [TestMethod]
+    public void Hidden_refreshes_update_counts_and_defer_the_list_until_shown()
     {
-        var provider = new MutableSnapshotProvider(listeners);
+        RunOnSta(() =>
+        {
+            var first = TestData.Listener(port: 3000);
+            var second = TestData.Listener(port: 5000);
+            var provider = new MutableSnapshotProvider([first]);
+            var viewModel = CreateViewModel(provider);
+            viewModel.RefreshAsync().GetAwaiter().GetResult();
+            viewModel.IsViewVisible = false;
+
+            var listChanges = 0;
+            ((INotifyCollectionChanged)viewModel.Listeners).CollectionChanged += (_, _) => listChanges++;
+            var countChanges = new List<string?>();
+            viewModel.PropertyChanged += (_, eventArgs) => countChanges.Add(eventArgs.PropertyName);
+
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+            Assert.IsEmpty(countChanges, "An unchanged hidden refresh must not notify anything.");
+
+            provider.Snapshot = [first, second];
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(2, viewModel.ListenerCount);
+            Assert.Contains(nameof(PopupWindowViewModel.ListenerCount), countChanges);
+            Assert.AreEqual(0, listChanges, "The hidden list must not be touched.");
+
+            viewModel.IsViewVisible = true;
+
+            CollectionAssert.AreEqual(new[] { first, second }, viewModel.Listeners.Cast<PortListener>().ToArray());
+        });
+    }
+
+    [TestMethod]
+    public void Visible_refreshes_update_rows_in_place()
+    {
+        RunOnSta(() =>
+        {
+            var web = TestData.Listener(port: 3000);
+            var api = TestData.Listener(port: 5000);
+            var docs = TestData.Listener(port: 8000);
+            var provider = new MutableSnapshotProvider([web, api, docs]);
+            var viewModel = CreateViewModel(provider);
+            viewModel.ShowAllCommand.Execute(null);
+            viewModel.RefreshAsync().GetAwaiter().GetResult();
+
+            var actions = new List<NotifyCollectionChangedAction>();
+            ((INotifyCollectionChanged)viewModel.Listeners).CollectionChanged += (_, eventArgs) => actions.Add(eventArgs.Action);
+
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+            Assert.IsEmpty(actions, "An unchanged refresh must leave every row alone.");
+
+            var apiWithActivity = api with { LastActiveUtc = api.LastActiveUtc.AddMinutes(5) };
+            var cache = TestData.Listener(port: 6379, processId: 4321, processName: "redis-server");
+            provider.Snapshot = [web, apiWithActivity, cache];
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+
+            CollectionAssert.AreEqual(
+                new[] { web, apiWithActivity, cache },
+                viewModel.Listeners.Cast<PortListener>().ToArray());
+            Assert.DoesNotContain(NotifyCollectionChangedAction.Reset, actions);
+        });
+    }
+
+    private static PopupWindowViewModel CreateViewModel(IReadOnlyList<PortListener> listeners) =>
+        CreateViewModel(new MutableSnapshotProvider(listeners));
+
+    private static PopupWindowViewModel CreateViewModel(MutableSnapshotProvider provider)
+    {
         return new PopupWindowViewModel(
             provider,
             new ProcessTerminationService(provider),

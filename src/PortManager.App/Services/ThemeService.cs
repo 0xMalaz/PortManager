@@ -8,6 +8,7 @@ public sealed class ThemeService : IDisposable
 {
     private const string PersonalizeRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private readonly System.Windows.Application _application;
+    private bool? _isLight;
     private bool _disposed;
 
     public ThemeService(System.Windows.Application application)
@@ -35,7 +36,14 @@ public sealed class ThemeService : IDisposable
 
     private void ApplyCurrentTheme()
     {
+        // UserPreferenceChanged fires for many unrelated settings; replacing the brushes forces a full redraw.
         var isLight = IsLightTheme();
+        if (_isLight == isLight)
+        {
+            return;
+        }
+
+        _isLight = isLight;
 
         SetBrush("WindowBackgroundBrush", isLight ? "#F5F7FB" : "#111318");
         SetBrush("SurfaceBrush", isLight ? "#FFFFFF" : "#1B1E25");

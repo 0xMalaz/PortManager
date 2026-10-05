@@ -23,6 +23,12 @@ public sealed class PopupWindowViewModel : ObservableObject
     private string _updatedText = "Not updated yet";
     private bool _isBusy;
     private PortCategory? _selectedCategory = PortCategory.Dev;
+    private IReadOnlyList<PortListener> _snapshot = [];
+    private DateTime? _snapshotTakenAt;
+    private int _devCount;
+    private int _otherCount;
+    private bool _isViewVisible = true;
+    private DateTimeOffset _currentTimeUtc = DateTimeOffset.UtcNow;
 
     public PopupWindowViewModel(
         IPortSnapshotProvider snapshotProvider,
@@ -58,13 +64,13 @@ public sealed class PopupWindowViewModel : ObservableObject
 
     public ICommand ShowOtherCommand { get; }
 
-    public int ListenerCount => _listeners.Count;
+    public int ListenerCount => _snapshot.Count;
 
     public string ListenerCountText => $"{ListenerCount} listening";
 
-    public int DevCount => _listeners.Count(listener => listener.Category == PortCategory.Dev);
+    public int DevCount => _devCount;
 
-    public int OtherCount => _listeners.Count(listener => listener.Category == PortCategory.Other);
+    public int OtherCount => _otherCount;
 
     public string AllFilterText => $"All  {ListenerCount}";
 
@@ -104,6 +110,7 @@ public sealed class PopupWindowViewModel : ObservableObject
             if (SetProperty(ref _errorMessage, value))
             {
                 OnPropertyChanged(nameof(HasError));
+                OnPropertyChanged(nameof(ShowEmptyState));
             }
         }
     }
@@ -133,7 +140,42 @@ public sealed class PopupWindowViewModel : ObservableObject
     public bool IsBusy
     {
         get => _isBusy;
-        private set => SetProperty(ref _isBusy, value);
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                OnPropertyChanged(nameof(ShowEmptyState));
+            }
+        }
+    }
+
+    /// <summary>
+    /// While the popup is hidden, refreshes only record the latest snapshot (and the tray count);
+    /// the list itself is brought up to date when the popup is shown again.
+    /// </summary>
+    public bool IsViewVisible
+    {
+        get => _isViewVisible;
+        set
+        {
+            if (_isViewVisible == value)
+            {
+                return;
+            }
+
+            _isViewVisible = value;
+            if (value)
+            {
+                ApplySnapshotToView();
+            }
+        }
+    }
+
+    /// <summary>Reference time for the relative "last active" column; advanced on each visible refresh.</summary>
+    public DateTimeOffset CurrentTimeUtc
+    {
+        get => _currentTimeUtc;
+        private set => SetProperty(ref _currentTimeUtc, value);
     }
 
     public bool HasVisibleListeners => _listeners.Any(FilterListener);
@@ -161,29 +203,11 @@ public sealed class PopupWindowViewModel : ObservableObject
         }
 
         ErrorMessage = string.Empty;
-        OnPropertyChanged(nameof(ShowEmptyState));
 
         try
         {
             var snapshot = await _snapshotProvider.GetListenersAsync();
-
-            _listeners.Clear();
-            foreach (var listener in snapshot.OrderBy(listener => listener.Port).ThenBy(listener => listener.ProcessName))
-            {
-                _listeners.Add(listener);
-            }
-
-            Listeners.Refresh();
-
-            UpdatedText = $"Updated {DateTime.Now:t}";
-            OnPropertyChanged(nameof(ListenerCount));
-            OnPropertyChanged(nameof(ListenerCountText));
-            OnPropertyChanged(nameof(DevCount));
-            OnPropertyChanged(nameof(OtherCount));
-            OnPropertyChanged(nameof(AllFilterText));
-            OnPropertyChanged(nameof(DevFilterText));
-            OnPropertyChanged(nameof(OtherFilterText));
-            NotifyFilterStateChanged();
+            SetSnapshot(snapshot.OrderBy(listener => listener.Port).ThenBy(listener => listener.ProcessName).ToArray());
         }
         catch (Exception exception)
         {
@@ -196,10 +220,129 @@ public sealed class PopupWindowViewModel : ObservableObject
                 IsBusy = false;
             }
 
-            OnPropertyChanged(nameof(ShowEmptyState));
             _refreshGate.Release();
         }
     }
+
+    private void SetSnapshot(IReadOnlyList<PortListener> snapshot)
+    {
+        var previousCount = _snapshot.Count;
+        var devCount = snapshot.Count(listener => listener.Category == PortCategory.Dev);
+        var otherCount = snapshot.Count(listener => listener.Category == PortCategory.Other);
+        _snapshot = snapshot;
+        _snapshotTakenAt = DateTime.Now;
+
+        // Only announce counts that changed; the tray tooltip and filter chips listen for these.
+        if (previousCount != snapshot.Count)
+        {
+            OnPropertyChanged(nameof(ListenerCount));
+            OnPropertyChanged(nameof(ListenerCountText));
+            OnPropertyChanged(nameof(AllFilterText));
+        }
+
+        if (_devCount != devCount)
+        {
+            _devCount = devCount;
+            OnPropertyChanged(nameof(DevCount));
+            OnPropertyChanged(nameof(DevFilterText));
+        }
+
+        if (_otherCount != otherCount)
+        {
+            _otherCount = otherCount;
+            OnPropertyChanged(nameof(OtherCount));
+            OnPropertyChanged(nameof(OtherFilterText));
+        }
+
+        if (_isViewVisible)
+        {
+            ApplySnapshotToView();
+        }
+    }
+
+    private void ApplySnapshotToView()
+    {
+        if (_snapshotTakenAt is { } snapshotTakenAt)
+        {
+            UpdatedText = $"Updated {snapshotTakenAt:t}";
+        }
+
+        if (SyncListeners())
+        {
+            NotifyFilterStateChanged();
+        }
+
+        CurrentTimeUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates the bound collection in place: unchanged rows keep their containers, selection and tooltips.
+    /// </summary>
+    private bool SyncListeners()
+    {
+        var changed = false;
+        var snapshotKeys = _snapshot.Select(ListenerKey).ToHashSet();
+        for (var index = _listeners.Count - 1; index >= 0; index--)
+        {
+            if (!snapshotKeys.Contains(ListenerKey(_listeners[index])))
+            {
+                _listeners.RemoveAt(index);
+                changed = true;
+            }
+        }
+
+        for (var index = 0; index < _snapshot.Count; index++)
+        {
+            var listener = _snapshot[index];
+            if (index < _listeners.Count && Equals(_listeners[index], listener))
+            {
+                continue;
+            }
+
+            var existingIndex = IndexOfListener(ListenerKey(listener), startIndex: index);
+            if (existingIndex < 0)
+            {
+                _listeners.Insert(index, listener);
+            }
+            else
+            {
+                if (existingIndex != index)
+                {
+                    _listeners.Move(existingIndex, index);
+                }
+
+                if (!Equals(_listeners[index], listener))
+                {
+                    _listeners[index] = listener;
+                }
+            }
+
+            changed = true;
+        }
+
+        while (_listeners.Count > _snapshot.Count)
+        {
+            _listeners.RemoveAt(_listeners.Count - 1);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private int IndexOfListener((int Port, int ProcessId) key, int startIndex)
+    {
+        for (var index = startIndex; index < _listeners.Count; index++)
+        {
+            if (ListenerKey(_listeners[index]) == key)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static (int Port, int ProcessId) ListenerKey(PortListener listener) => (listener.Port, listener.ProcessId);
 
     private async Task KillAsync(PortListener listener)
     {

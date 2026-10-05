@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using PortManager.Models;
+using PortManager.Native;
 
 namespace PortManager.Services;
 
@@ -154,15 +155,9 @@ public sealed class ProcessTerminationService : IProcessTerminationService
             return string.Equals(process.ProcessName, listener.ProcessName, StringComparison.OrdinalIgnoreCase);
         }
 
-        try
-        {
-            var currentStartTime = new DateTimeOffset(process.StartTime.ToUniversalTime(), TimeSpan.Zero);
-            return currentStartTime == listener.ProcessStartTimeUtc;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
-        {
-            return false;
-        }
+        // Read the start time the same way the snapshot does so the two always compare exactly.
+        var currentStartTime = NativeProcessInfo.QueryStartTimeUtc(process.Id);
+        return currentStartTime.HasValue && currentStartTime == listener.ProcessStartTimeUtc;
     }
 
     private static async Task TerminateProcessTreeAsync(

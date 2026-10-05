@@ -59,8 +59,6 @@ public sealed record PortListener(
         ? "—"
         : FrameworkName;
 
-    public string LastActiveDisplay => PortActivityFormatter.Format(LastActiveUtc, DateTimeOffset.UtcNow);
-
     public string LastActiveToolTip
     {
         get

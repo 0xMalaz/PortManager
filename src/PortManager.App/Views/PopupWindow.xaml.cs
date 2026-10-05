@@ -23,18 +23,6 @@ public partial class PopupWindow : Window
 
     internal bool DisableAutoHide { get; set; }
 
-    public void ToggleNearTray()
-    {
-        if (IsVisible)
-        {
-            Hide();
-        }
-        else
-        {
-            ShowNearTray();
-        }
-    }
-
     public void ShowNearTray()
     {
         if (!IsVisible)

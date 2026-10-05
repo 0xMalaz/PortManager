@@ -155,7 +155,7 @@
 
             <StackPanel Grid.Row="3">
                 <ProgressBar Height="2"
-                             IsIndeterminate="True"
+                             IsIndeterminate="{Binding IsBusy}"
                              Background="Transparent"
                              Foreground="{DynamicResource AccentBrush}"
                              Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -310,12 +310,19 @@
                                 <TextBlock Grid.Column="2"
                                            Margin="0,0,5,0"
                                            VerticalAlignment="Center"
-                                           Text="{Binding LastActiveDisplay}"
                                            ToolTip="{Binding LastActiveToolTip}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontFamily="Cascadia Mono, Consolas"
                                            FontSize="8"
-                                           TextWrapping="Wrap" />
+                                           TextWrapping="Wrap">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource RelativeTimeConverter}">
+                                            <Binding Path="LastActiveUtc" />
+                                            <Binding Path="DataContext.CurrentTimeUtc"
+                                                     RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
 
                                 <Button Grid.Column="3"
                                         Content="×"

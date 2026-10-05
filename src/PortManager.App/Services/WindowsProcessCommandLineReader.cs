@@ -1,5 +1,4 @@
-using System.Management;
-using System.Runtime.InteropServices;
+using PortManager.Native;
 
 namespace PortManager.Services;
 
@@ -12,43 +11,14 @@ internal sealed class WindowsProcessCommandLineReader : IProcessCommandLineReade
 {
     public IReadOnlyDictionary<int, string?> ReadCommandLines(IReadOnlyCollection<int> processIds)
     {
-        var ids = processIds
-            .Where(processId => processId > 0)
-            .Distinct()
-            .ToArray();
+        var commandLines = new Dictionary<int, string?>();
 
-        if (ids.Length == 0)
+        foreach (var processId in processIds.Where(processId => processId > 0).Distinct())
         {
-            return new Dictionary<int, string?>();
+            using var handle = NativeProcessInfo.OpenForQuery(processId);
+            commandLines[processId] = handle is null ? null : NativeProcessInfo.QueryCommandLine(handle);
         }
 
-        var whereClause = string.Join(" OR ", ids.Select(processId => $"ProcessId = {processId}"));
-        var query = $"SELECT ProcessId, CommandLine FROM Win32_Process WHERE {whereClause}";
-
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(query);
-            using var results = searcher.Get();
-            var commandLines = new Dictionary<int, string?>();
-
-            foreach (ManagementObject process in results)
-            {
-                using (process)
-                {
-                    var processId = Convert.ToInt32(process["ProcessId"]);
-                    commandLines[processId] = process["CommandLine"] as string;
-                }
-            }
-
-            return commandLines;
-        }
-        catch (Exception exception) when (
-            exception is ManagementException or
-            UnauthorizedAccessException or
-            COMException or
-            InvalidOperationException)
-        {
-            return new Dictionary<int, string?>();
-        }
+        return commandLines;
     }
 }
