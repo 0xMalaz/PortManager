@@ -23,7 +23,7 @@ internal enum TcpEndpointState : uint
 internal sealed record RawTcpEndpoint(
     int Port,
     int ProcessId,
-    string Address,
+    string? Address,
     TcpEndpointState State);
 
 internal interface ITcpTableReader
@@ -59,7 +59,7 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
         var result = GetExtendedTcpTable(
             IntPtr.Zero,
             ref bufferSize,
-            true,
+            order: false,
             addressFamily,
             TcpTableClass.OwnerPidAll,
             0);
@@ -82,7 +82,7 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
                 result = GetExtendedTcpTable(
                     buffer,
                     ref bufferSize,
-                    true,
+                    order: false,
                     addressFamily,
                     TcpTableClass.OwnerPidAll,
                     0);
@@ -146,23 +146,30 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
         var localAddressValue = ReadUInt32(pointer, 4);
         var localPortValue = ReadUInt32(pointer, 8);
         var processId = unchecked((int)ReadUInt32(pointer, 20));
-        var address = new IPAddress(BitConverter.GetBytes(localAddressValue));
 
-        return new RawTcpEndpoint(DecodePort(localPortValue), processId, address.ToString(), state);
+        // Only listeners display their bound address; connection rows are used for activity tracking alone.
+        var address = state == TcpEndpointState.Listen
+            ? new IPAddress(localAddressValue).ToString()
+            : null;
+
+        return new RawTcpEndpoint(DecodePort(localPortValue), processId, address, state);
     }
 
     internal static RawTcpEndpoint ParseIpv6Row(IntPtr pointer)
     {
-        var addressBytes = new byte[16];
-        Marshal.Copy(pointer, addressBytes, 0, addressBytes.Length);
-
-        var scopeId = ReadUInt32(pointer, 16);
         var localPortValue = ReadUInt32(pointer, 20);
         var state = (TcpEndpointState)ReadUInt32(pointer, 48);
         var processId = unchecked((int)ReadUInt32(pointer, 52));
-        var address = new IPAddress(addressBytes, scopeId);
 
-        return new RawTcpEndpoint(DecodePort(localPortValue), processId, address.ToString(), state);
+        string? address = null;
+        if (state == TcpEndpointState.Listen)
+        {
+            var addressBytes = new byte[16];
+            Marshal.Copy(pointer, addressBytes, 0, addressBytes.Length);
+            address = new IPAddress(addressBytes, ReadUInt32(pointer, 16)).ToString();
+        }
+
+        return new RawTcpEndpoint(DecodePort(localPortValue), processId, address, state);
     }
 
     private static uint ReadUInt32(IntPtr pointer, int offset) =>

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
+using PortManager.Native;
 using PortManager.Services;
 using PortManager.ViewModels;
 using PortManager.Views;
@@ -65,13 +66,13 @@ public partial class App : System.Windows.Application
 #endif
 
         _trayIcon = new TrayIconService(_startupRegistration.IsEnabled);
-        _trayIcon.ToggleRequested += (_, _) => Dispatcher.Invoke(_popupWindow.ToggleNearTray);
-        _trayIcon.OpenRequested += (_, _) => Dispatcher.Invoke(_popupWindow.ShowNearTray);
+        _trayIcon.ToggleRequested += (_, _) => Dispatcher.Invoke(TogglePopup);
+        _trayIcon.OpenRequested += (_, _) => Dispatcher.Invoke(ShowPopup);
         _trayIcon.RefreshRequested += (_, _) => Dispatcher.Invoke(() => _ = _viewModel.RefreshAsync());
         _trayIcon.StartupToggleRequested += OnStartupToggleRequested;
         _trayIcon.ExitRequested += (_, _) => Dispatcher.Invoke(RequestShutdown);
 
-        _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(_popupWindow.ShowNearTray);
+        _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
         _viewModel.PropertyChanged += (_, propertyChanged) =>
         {
             if (propertyChanged.PropertyName == nameof(PopupWindowViewModel.ListenerCount))
@@ -80,7 +81,8 @@ public partial class App : System.Windows.Application
             }
         };
 
-        _popupWindow.IsVisibleChanged += (_, _) => UpdateRefreshInterval();
+        _viewModel.IsViewVisible = false;
+        _popupWindow.IsVisibleChanged += (_, _) => OnPopupVisibilityChanged();
         _refreshTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(5)
@@ -89,10 +91,15 @@ public partial class App : System.Windows.Application
         _refreshTimer.Start();
 
         await _viewModel.RefreshAsync();
+        _trayIcon.SetListenerCount(_viewModel.ListenerCount);
 
         if (!eventArgs.Args.Contains("--startup", StringComparer.OrdinalIgnoreCase))
         {
-            _popupWindow.ShowNearTray();
+            ShowPopup();
+        }
+        else
+        {
+            ProcessPowerThrottling.SetEfficiencyMode(true);
         }
     }
 
@@ -129,18 +136,46 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void UpdateRefreshInterval()
+    private void ShowPopup()
+    {
+        // Leave efficiency mode before the window renders so opening the popup stays instant.
+        ProcessPowerThrottling.SetEfficiencyMode(false);
+        _popupWindow?.ShowNearTray();
+    }
+
+    private void TogglePopup()
+    {
+        if (_popupWindow is null)
+        {
+            return;
+        }
+
+        if (_popupWindow.IsVisible)
+        {
+            _popupWindow.Hide();
+        }
+        else
+        {
+            ShowPopup();
+        }
+    }
+
+    private void OnPopupVisibilityChanged()
     {
         if (_refreshTimer is null || _popupWindow is null || _viewModel is null)
         {
             return;
         }
 
-        _refreshTimer.Interval = _popupWindow.IsVisible
+        var isVisible = _popupWindow.IsVisible;
+        _viewModel.IsViewVisible = isVisible;
+        ProcessPowerThrottling.SetEfficiencyMode(!isVisible);
+
+        _refreshTimer.Interval = isVisible
             ? TimeSpan.FromSeconds(2)
             : TimeSpan.FromSeconds(5);
 
-        if (_popupWindow.IsVisible)
+        if (isVisible)
         {
             _ = _viewModel.RefreshInBackgroundAsync();
         }

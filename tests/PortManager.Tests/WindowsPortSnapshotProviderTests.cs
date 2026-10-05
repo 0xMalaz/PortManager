@@ -105,6 +105,75 @@ public sealed class WindowsPortSnapshotProviderTests
         Assert.AreEqual(PortActivitySource.FirstSeen, listeners[0].LastActivitySource);
     }
 
+    [TestMethod]
+    public async Task GetListeners_reads_process_metadata_only_when_its_listening_ports_change()
+    {
+        var reader = new FakeTcpTableReader(
+        [
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Established)
+        ]);
+        var metadata = new CountingMetadataReader();
+        var provider = new WindowsPortSnapshotProvider(
+            reader,
+            currentProcessId: -1,
+            new CountingCommandLineReader("node server.js"),
+            metadataReader: metadata);
+
+        await provider.GetListenersAsync();
+        await provider.GetListenersAsync();
+        Assert.AreEqual(1, metadata.ReadCount, "An unchanged listener set must not re-read process details.");
+
+        reader.Endpoints =
+        [
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(3001, 1234, "127.0.0.1", TcpEndpointState.Listen)
+        ];
+        await provider.GetListenersAsync();
+        Assert.AreEqual(2, metadata.ReadCount, "A process whose ports changed is read again.");
+
+        reader.Endpoints = [];
+        await provider.GetListenersAsync();
+        reader.Endpoints = [new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen)];
+        await provider.GetListenersAsync();
+        Assert.AreEqual(3, metadata.ReadCount, "A PID that disappeared is read again when it returns.");
+    }
+
+    [TestMethod]
+    public async Task GetListeners_returns_the_same_instances_until_a_listener_changes()
+    {
+        var now = new DateTimeOffset(2026, 8, 3, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new MutableTimeProvider(now);
+        var reader = new FakeTcpTableReader(
+        [
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(5000, 1234, "127.0.0.1", TcpEndpointState.Listen)
+        ]);
+        var provider = new WindowsPortSnapshotProvider(
+            reader,
+            currentProcessId: -1,
+            new CountingCommandLineReader("node server.js"),
+            timeProvider: timeProvider,
+            metadataReader: new CountingMetadataReader());
+
+        var first = await provider.GetListenersAsync();
+        timeProvider.UtcNow = now.AddMinutes(1);
+        var unchanged = await provider.GetListenersAsync();
+        reader.Endpoints =
+        [
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(5000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(5000, 1234, "127.0.0.1", TcpEndpointState.Established)
+        ];
+        var connected = await provider.GetListenersAsync();
+
+        Assert.AreSame(first[0], unchanged[0]);
+        Assert.AreSame(first[1], unchanged[1]);
+        Assert.AreSame(first[0], connected[0]);
+        Assert.AreNotSame(first[1], connected[1]);
+        Assert.AreEqual(PortActivitySource.ObservedConnection, connected[1].LastActivitySource);
+    }
+
     private sealed class FakeTcpTableReader(IReadOnlyList<RawTcpEndpoint> endpoints) : ITcpTableReader
     {
         public IReadOnlyList<RawTcpEndpoint> Endpoints { get; set; } = endpoints;
@@ -120,6 +189,19 @@ public sealed class WindowsPortSnapshotProviderTests
         {
             ReadCount++;
             return processIds.ToDictionary(processId => processId, _ => (string?)commandLine);
+        }
+    }
+
+    private sealed class CountingMetadataReader : IProcessMetadataReader
+    {
+        private static readonly DateTimeOffset StartTime = new(2026, 8, 3, 10, 0, 0, TimeSpan.Zero);
+
+        public int ReadCount { get; private set; }
+
+        public ProcessMetadata Read(int processId)
+        {
+            ReadCount++;
+            return new ProcessMetadata(processId, "node", @"C:\Tools\node.exe", StartTime);
         }
     }
 

@@ -34,8 +34,30 @@ public sealed class NativeTcpTableReaderTests
 
             Assert.AreEqual(5173, endpoint.Port);
             Assert.AreEqual(8214, endpoint.ProcessId);
-            Assert.AreEqual("127.0.0.1", endpoint.Address);
+            Assert.IsNull(endpoint.Address, "Connection rows skip address formatting.");
             Assert.AreEqual(TcpEndpointState.Established, endpoint.State);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(row);
+        }
+    }
+
+    [TestMethod]
+    public void ParseIpv4Row_formats_listener_address_in_network_order()
+    {
+        var row = Marshal.AllocHGlobal(24);
+        try
+        {
+            Marshal.WriteInt32(row, 0, (int)TcpEndpointState.Listen);
+            Marshal.WriteInt32(row, 4, BitConverter.ToInt32(IPAddress.Parse("192.168.1.20").GetAddressBytes()));
+            Marshal.WriteInt32(row, 8, unchecked((int)EncodePort(3000)));
+            Marshal.WriteInt32(row, 20, 8214);
+
+            var endpoint = NativeTcpTableReader.ParseIpv4Row(row);
+
+            Assert.AreEqual("192.168.1.20", endpoint.Address);
+            Assert.AreEqual(TcpEndpointState.Listen, endpoint.State);
         }
         finally
         {
