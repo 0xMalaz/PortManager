@@ -29,6 +29,8 @@ public sealed class TrayIconService : IDisposable
         _contextMenu = new Forms.ContextMenuStrip();
         var openItem = new Forms.ToolStripMenuItem("Open Port Manager");
         var refreshItem = new Forms.ToolStripMenuItem("Refresh");
+        var updateItem = new Forms.ToolStripMenuItem("Check for updates");
+        updateItem.Click += (_, _) => UpdateRequested?.Invoke(this, EventArgs.Empty);
         _startWithWindowsItem = new Forms.ToolStripMenuItem("Start with Windows")
         {
             Checked = startupEnabled,
@@ -44,6 +46,7 @@ public sealed class TrayIconService : IDisposable
 
         _contextMenu.Items.Add(openItem);
         _contextMenu.Items.Add(refreshItem);
+        _contextMenu.Items.Add(updateItem);
         _contextMenu.Items.Add(new Forms.ToolStripSeparator());
         _contextMenu.Items.Add(_startWithWindowsItem);
         _contextMenu.Items.Add(new Forms.ToolStripSeparator());
@@ -71,6 +74,7 @@ public sealed class TrayIconService : IDisposable
     public event EventHandler? OpenRequested;
 
     public event EventHandler? RefreshRequested;
+    public event EventHandler? UpdateRequested;
 
     public event Action<bool>? StartupToggleRequested;
 

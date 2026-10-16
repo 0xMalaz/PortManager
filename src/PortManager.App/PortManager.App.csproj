@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <StartupObject>PortManager.Program</StartupObject>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>PortManager</AssemblyName>
     <RootNamespace>PortManager</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -20,6 +21,16 @@
     <!-- Precompiled code avoids JIT work at every launch, including Windows startup. -->
     <PublishReadyToRun>true</PublishReadyToRun>
     <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.161" />
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(EnableLocalUpdateFeed)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCAL_UPDATE_FEED</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,0 +1,72 @@
+name: Release
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: portmanager-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_REPO: ${{ github.repository }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Validate tag and version
+        run: |
+          if ($env:RELEASE_TAG -cnotmatch '^v(\d+\.\d+\.\d+)$') { throw 'Expected vX.Y.Z stable version tag.' }
+          $version = $Matches[1]
+          [xml] $project = Get-Content src/PortManager.App/PortManager.App.csproj
+          $projectVersion = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          if ($version -cne $projectVersion) { throw 'Tag does not match project version.' }
+          "VERSION=$version" >> $env:GITHUB_ENV
+      - name: Test
+        run: |
+          dotnet test PortManager.sln -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+          ./scripts/Test-ReleasePublishing.ps1
+          ./scripts/Test-UpdateBuildModes.ps1
+      - name: Find previous compatible release
+        run: |
+          $json = gh api "repos/$env:RELEASE_REPO/releases?per_page=100" --paginate --slurp
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot query releases.' }
+          $releases = @($json | ConvertFrom-Json | ForEach-Object { $_ } | ForEach-Object { $_ })
+          if ($releases | Where-Object { $_.tag_name -ceq $env:RELEASE_TAG -and !$_.draft }) { throw 'Already published; no assets will be modified.' }
+          if ($releases | Where-Object { !$_.draft -and !$_.prerelease -and $_.tag_name -cmatch '^v\d+\.\d+\.\d+$' -and [version]$_.tag_name.Substring(1) -ge [version]$env:VERSION }) {
+            throw 'The new stable version must exceed every published stable version.'
+          }
+          $previous = $releases | Where-Object {
+            !$_.draft -and !$_.prerelease -and $_.tag_name -cmatch '^v\d+\.\d+\.\d+$' -and
+            [version]$_.tag_name.Substring(1) -lt [version]$env:VERSION -and
+            ($_.assets.name -contains "0xMalaz.PortManager-$($_.tag_name.Substring(1))-full.nupkg")
+          } | Sort-Object { [version]$_.tag_name.Substring(1) } -Descending | Select-Object -First 1
+          if ($previous) {
+            New-Item artifacts/previous -ItemType Directory -Force | Out-Null
+            $name = "0xMalaz.PortManager-$($previous.tag_name.Substring(1))-full.nupkg"
+            gh release download $previous.tag_name --repo $env:RELEASE_REPO --pattern $name --dir artifacts/previous
+            if ($LASTEXITCODE -ne 0) { throw 'Previous package download failed.' }
+            "PREVIOUS_PACKAGE=artifacts/previous/$name" >> $env:GITHUB_ENV
+          } else {
+            Write-Host 'No previous compatible package; creating the first full release without a delta.'
+          }
+      - name: Package
+        run: ./scripts/Build-Release.ps1 -Version $env:VERSION -PreviousPackage $env:PREVIOUS_PACKAGE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PortManager-release
+          path: artifacts/releases/*
+      - name: Upload draft and publish
+        run: ./scripts/Publish-Release.ps1 -Tag $env:RELEASE_TAG -Repository $env:RELEASE_REPO

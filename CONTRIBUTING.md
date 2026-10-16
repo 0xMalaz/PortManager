@@ -56,8 +56,10 @@ Example: `fix: keep the popup open while a confirmation dialog is shown`.
 ## Releases (maintainers)
 
 1. Bump `<Version>` in `src/PortManager.App/PortManager.App.csproj`.
-2. Publish: `dotnet publish .\src\PortManager.App\PortManager.App.csproj -c Release -p:PublishProfile=win-x64`.
-3. Create a GitHub release tagged `vX.Y.Z` with generated release notes, and attach `artifacts\publish\win-x64\PortManager.exe`.
+2. Commit the change and push a matching `vX.Y.Z` tag. Use a new version higher than the last published release.
+3. The release workflow tests, packages, uploads every asset to a draft, then publishes it. Never manually publish its draft while the workflow runs. Rerun failed workflows to replace a partial draft; published releases are immutable to this automation.
+
+See [updates.md](docs/updates.md) for local packaging, two-version tests, release recovery and the permanent package identity.
 
 ## License
 
