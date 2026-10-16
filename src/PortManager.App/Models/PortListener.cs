@@ -37,19 +37,29 @@ public sealed record PortListener(
     {
         get
         {
-            var distinct = Addresses.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-
-            if (distinct.Any(address => address is "0.0.0.0" or "::"))
+            if (Addresses.Count == 0)
             {
-                return "All interfaces";
+                return "Unknown address";
             }
 
-            if (distinct.Length > 0 && distinct.All(address => address is "127.0.0.1" or "::1"))
+            var allLoopback = true;
+            for (var index = 0; index < Addresses.Count; index++)
+            {
+                var address = Addresses[index];
+                if (address is "0.0.0.0" or "::")
+                {
+                    return "All interfaces";
+                }
+
+                allLoopback &= address is "127.0.0.1" or "::1";
+            }
+
+            if (allLoopback)
             {
                 return "localhost";
             }
 
-            return distinct.Length == 0 ? "Unknown address" : string.Join(", ", distinct);
+            return string.Join(", ", Addresses.Distinct(StringComparer.OrdinalIgnoreCase));
         }
     }
 

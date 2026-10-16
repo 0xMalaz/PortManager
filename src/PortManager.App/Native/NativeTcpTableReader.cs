@@ -42,8 +42,8 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
     public IReadOnlyList<RawTcpEndpoint> ReadEndpoints()
     {
         var endpoints = new List<RawTcpEndpoint>();
-        endpoints.AddRange(ReadTable(AddressFamilyInet));
-        endpoints.AddRange(ReadTable(AddressFamilyInet6));
+        ReadTable(AddressFamilyInet, endpoints);
+        ReadTable(AddressFamilyInet6, endpoints);
         return endpoints;
     }
 
@@ -53,7 +53,7 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
         return unchecked((ushort)IPAddress.NetworkToHostOrder(networkValue));
     }
 
-    private static IReadOnlyList<RawTcpEndpoint> ReadTable(int addressFamily)
+    private static void ReadTable(int addressFamily, List<RawTcpEndpoint> endpoints)
     {
         var bufferSize = 0;
         var result = GetExtendedTcpTable(
@@ -71,7 +71,7 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
 
         if (bufferSize <= 0)
         {
-            return [];
+            return;
         }
 
         for (var attempt = 0; attempt < 3; attempt++)
@@ -97,9 +97,16 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
                     throw new Win32Exception(unchecked((int)result));
                 }
 
-                return addressFamily == AddressFamilyInet
-                    ? ParseIpv4Table(buffer)
-                    : ParseIpv6Table(buffer);
+                if (addressFamily == AddressFamilyInet)
+                {
+                    AppendIpv4Table(buffer, endpoints);
+                }
+                else
+                {
+                    AppendIpv6Table(buffer, endpoints);
+                }
+
+                return;
             }
             finally
             {
@@ -110,10 +117,10 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
         throw new Win32Exception(unchecked((int)ErrorInsufficientBuffer));
     }
 
-    private static IReadOnlyList<RawTcpEndpoint> ParseIpv4Table(IntPtr table)
+    internal static void AppendIpv4Table(IntPtr table, List<RawTcpEndpoint> rows)
     {
         var count = Marshal.ReadInt32(table);
-        var rows = new List<RawTcpEndpoint>(Math.Max(count, 0));
+        rows.EnsureCapacity(checked(rows.Count + Math.Max(count, 0)));
         var rowPointer = IntPtr.Add(table, sizeof(uint));
 
         for (var index = 0; index < count; index++)
@@ -121,14 +128,12 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
             var pointer = IntPtr.Add(rowPointer, index * Ipv4RowSize);
             rows.Add(ParseIpv4Row(pointer));
         }
-
-        return rows;
     }
 
-    private static IReadOnlyList<RawTcpEndpoint> ParseIpv6Table(IntPtr table)
+    internal static void AppendIpv6Table(IntPtr table, List<RawTcpEndpoint> rows)
     {
         var count = Marshal.ReadInt32(table);
-        var rows = new List<RawTcpEndpoint>(Math.Max(count, 0));
+        rows.EnsureCapacity(checked(rows.Count + Math.Max(count, 0)));
         var rowPointer = IntPtr.Add(table, sizeof(uint));
 
         for (var index = 0; index < count; index++)
@@ -136,8 +141,6 @@ internal sealed class NativeTcpTableReader : ITcpTableReader
             var pointer = IntPtr.Add(rowPointer, index * Ipv6RowSize);
             rows.Add(ParseIpv6Row(pointer));
         }
-
-        return rows;
     }
 
     internal static RawTcpEndpoint ParseIpv4Row(IntPtr pointer)

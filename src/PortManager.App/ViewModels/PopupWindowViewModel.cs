@@ -280,6 +280,13 @@ public sealed class PopupWindowViewModel : ObservableObject
     /// </summary>
     private bool SyncListeners()
     {
+        // Most visible polls return equal rows in the same order. Avoid allocating the key set
+        // in that case; ApplySnapshotToView still advances the relative activity clock.
+        if (_listeners.Count == _snapshot.Count && _listeners.SequenceEqual(_snapshot))
+        {
+            return false;
+        }
+
         var changed = false;
         var snapshotKeys = _snapshot.Select(ListenerKey).ToHashSet();
         for (var index = _listeners.Count - 1; index >= 0; index--)

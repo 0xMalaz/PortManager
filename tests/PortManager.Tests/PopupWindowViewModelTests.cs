@@ -223,6 +223,74 @@ public sealed class PopupWindowViewModelTests
         });
     }
 
+    [TestMethod]
+    public void Equal_record_copies_keep_rows_and_still_advance_the_activity_clock()
+    {
+        RunOnSta(() =>
+        {
+            var first = TestData.Listener(port: 3000);
+            var second = TestData.Listener(port: 5000);
+            var provider = new MutableSnapshotProvider([first, second]);
+            var viewModel = CreateViewModel(provider);
+            viewModel.RefreshAsync().GetAwaiter().GetResult();
+            var changes = 0;
+            var clockChanges = 0;
+            ((INotifyCollectionChanged)viewModel.Listeners).CollectionChanged += (_, _) => changes++;
+            viewModel.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(PopupWindowViewModel.CurrentTimeUtc)) clockChanges++;
+            };
+
+            provider.Snapshot = [first with { }, second with { }];
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => DateTimeOffset.UtcNow > viewModel.CurrentTimeUtc,
+                TimeSpan.FromSeconds(1)), "Wait for a new clock tick before checking the notification.");
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(0, changes);
+            Assert.AreEqual(1, clockChanges);
+            Assert.AreSame(first, viewModel.Listeners.Cast<PortListener>().First());
+        });
+    }
+
+    [TestMethod]
+    public void Same_count_refreshes_reorder_and_replace_rows_and_refresh_filters()
+    {
+        RunOnSta(() =>
+        {
+            var first = TestData.Listener(port: 3000, processId: 100, processName: "Beta");
+            var second = TestData.Listener(port: 3000, processId: 200, processName: "Alpha");
+            var provider = new MutableSnapshotProvider([first, second]);
+            var viewModel = CreateViewModel(provider);
+            viewModel.ShowAllCommand.Execute(null);
+            viewModel.RefreshAsync().GetAwaiter().GetResult();
+            CollectionAssert.AreEqual(new[] { second, first }, viewModel.Listeners.Cast<PortListener>().ToArray());
+
+            var changed = first with
+            {
+                ProcessName = "Aardvark", Category = PortCategory.Other, Addresses = ["192.168.1.20"],
+                LastActiveUtc = first.LastActiveUtc.AddMinutes(1), IsProtected = true
+            };
+            provider.Snapshot = [changed, second];
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+            CollectionAssert.AreEqual(new[] { changed, second }, viewModel.Listeners.Cast<PortListener>().ToArray());
+            Assert.AreEqual(1, viewModel.DevCount);
+            Assert.AreEqual(1, viewModel.OtherCount);
+            viewModel.ShowOtherCommand.Execute(null);
+            CollectionAssert.AreEqual(new[] { changed }, viewModel.Listeners.Cast<PortListener>().ToArray());
+            viewModel.SearchText = "192.168";
+            Assert.IsTrue(viewModel.HasVisibleListeners);
+
+            var replacement = second with { ProcessId = 300 };
+            provider.Snapshot = [replacement, second];
+            viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
+            Assert.IsFalse(viewModel.HasVisibleListeners);
+            viewModel.SearchText = string.Empty;
+            viewModel.ShowAllCommand.Execute(null);
+            CollectionAssert.AreEqual(new[] { replacement, second }, viewModel.Listeners.Cast<PortListener>().ToArray());
+        });
+    }
+
     private static PopupWindowViewModel CreateViewModel(IReadOnlyList<PortListener> listeners) =>
         CreateViewModel(new MutableSnapshotProvider(listeners));
 

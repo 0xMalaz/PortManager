@@ -9,6 +9,54 @@ public sealed class PortServiceClassifierTests
     private readonly PortServiceClassifier _classifier = new();
 
     [TestMethod]
+    [DataRow("POSTGRES", "PostgreSQL")]
+    [DataRow("postmaster", "PostgreSQL")]
+    [DataRow("mysqld", "MySQL")]
+    [DataRow("mariadbd", "MariaDB")]
+    [DataRow("mongod", "MongoDB")]
+    [DataRow("redis-server", "Redis")]
+    [DataRow("redis_server", "Redis")]
+    [DataRow("sqlservr", "SQL Server")]
+    [DataRow("nginx", "Nginx")]
+    [DataRow("httpd", "Apache")]
+    [DataRow("apache2", "Apache")]
+    [DataRow("postgres-mysqld", "PostgreSQL")]
+    public void Classify_unambiguous_service_names_skip_manifest_reads(string processName, string expectedFramework)
+    {
+        var reads = 0;
+        var classifier = new PortServiceClassifier(_ =>
+        {
+            reads++;
+            return "org.elasticsearch rabbitmq \"next\"";
+        });
+
+        var result = classifier.Classify(Process(processName, "node next dev org.elasticsearch"), port: 6379);
+
+        Assert.AreEqual(expectedFramework, result.FrameworkName);
+        Assert.AreEqual(PortCategory.Dev, result.Category);
+        Assert.AreEqual(0, reads, "A process-name rule that already wins must not probe the filesystem.");
+    }
+
+    [TestMethod]
+    [DataRow("rabbitmq", "org.elasticsearch", "Elasticsearch")]
+    [DataRow("node", "\"next\"", "Next.js")]
+    [DataRow("custom-agent", "rabbitmq", "RabbitMQ")]
+    public void Classify_preserves_manifest_precedence_for_other_processes(string processName, string manifest, string expectedFramework)
+    {
+        var reads = 0;
+        var classifier = new PortServiceClassifier(_ =>
+        {
+            reads++;
+            return manifest;
+        });
+
+        var result = classifier.Classify(Process(processName, null), port: 6379);
+
+        Assert.AreEqual(expectedFramework, result.FrameworkName);
+        Assert.AreEqual(1, reads);
+    }
+
+    [TestMethod]
     [DataRow("node", "node next dev", "Next.js Dev Server", "Next.js")]
     [DataRow("node", "node vite", "Vite Dev Server", "Vite")]
     [DataRow("python", "python -m jupyter-lab", "Jupyter Server", "Jupyter")]

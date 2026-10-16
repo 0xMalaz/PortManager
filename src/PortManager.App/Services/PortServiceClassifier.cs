@@ -16,6 +16,12 @@ internal sealed partial class PortServiceClassifier : IPortServiceClassifier
     private const long MaximumManifestBytes = 512 * 1024;
     private const int MaximumParentDepth = 8;
     private const int MaximumManifestFiles = 4;
+    private readonly Func<ProcessMetadata, string> _readManifestEvidence;
+
+    internal PortServiceClassifier(Func<ProcessMetadata, string>? readManifestEvidence = null)
+    {
+        _readManifestEvidence = readManifestEvidence ?? ReadManifestEvidence;
+    }
 
     private static readonly string[] ManifestNames =
     [
@@ -47,12 +53,18 @@ internal sealed partial class PortServiceClassifier : IPortServiceClassifier
     public PortClassification Classify(ProcessMetadata process, int port)
     {
         var processName = Normalize(process.ProcessName);
+        var service = ClassifyUnambiguousProcessName(processName);
+        if (service is not null)
+        {
+            return service;
+        }
+
         var commandLine = Normalize(process.CommandLine);
         var executablePath = Normalize(process.ExecutablePath);
-        var manifests = Normalize(ReadManifestEvidence(process));
+        var manifests = Normalize(_readManifestEvidence(process));
         var evidence = $"{commandLine}\n{executablePath}\n{manifests}";
 
-        var service = ClassifyKnownService(processName, evidence);
+        service = ClassifyKnownService(processName, evidence);
         if (service is not null)
         {
             return service;
@@ -72,7 +84,9 @@ internal sealed partial class PortServiceClassifier : IPortServiceClassifier
         return new PortClassification(FriendlyProcessName(process.ProcessName), null, PortCategory.Other);
     }
 
-    private static PortClassification? ClassifyKnownService(string processName, string evidence)
+    // These leading rules take precedence over all manifest and command-line evidence.
+    // Keep evidence-dependent service rules below the manifest read to preserve their ordering.
+    private static PortClassification? ClassifyUnambiguousProcessName(string processName)
     {
         if (ContainsAny(processName, "postgres", "postmaster"))
         {
@@ -109,6 +123,11 @@ internal sealed partial class PortServiceClassifier : IPortServiceClassifier
             return Dev("Apache Server", "Apache");
         }
 
+        return null;
+    }
+
+    private static PortClassification? ClassifyKnownService(string processName, string evidence)
+    {
         if (ContainsAny(processName, "elasticsearch") || evidence.Contains("org.elasticsearch"))
         {
             return Dev("Elasticsearch Server", "Elasticsearch");
