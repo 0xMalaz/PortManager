@@ -19,6 +19,8 @@ public partial class App : System.Windows.Application
     private PopupWindowViewModel? _viewModel;
     private DispatcherTimer? _refreshTimer;
     private bool _isExiting;
+    private UpdateCoordinator? _updates;
+    private UpdateWindow? _updateWindow;
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
@@ -71,6 +73,9 @@ public partial class App : System.Windows.Application
         _trayIcon.RefreshRequested += (_, _) => Dispatcher.Invoke(() => _ = _viewModel.RefreshAsync());
         _trayIcon.StartupToggleRequested += OnStartupToggleRequested;
         _trayIcon.ExitRequested += (_, _) => Dispatcher.Invoke(RequestShutdown);
+        _updates = new UpdateCoordinator(new VelopackAppUpdater(), RequestShutdown);
+        _updates.StatusChanged += status => _updateWindow?.Render(status);
+        _trayIcon.UpdateRequested += (_, _) => Dispatcher.Invoke(CheckForUpdates);
 
         _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
         _viewModel.PropertyChanged += (_, propertyChanged) =>
@@ -105,12 +110,28 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs eventArgs)
     {
+        _updates?.Dispose();
+        _updateWindow?.Close();
         _refreshTimer?.Stop();
         _trayIcon?.Dispose();
         _popupWindow?.CloseForExit();
         _themeService?.Dispose();
         _singleInstance?.Dispose();
         base.OnExit(eventArgs);
+    }
+
+    private async void CheckForUpdates()
+    {
+        if (_isExiting || _updates is null) return;
+        if (_updateWindow is null)
+        {
+            _updateWindow = new UpdateWindow();
+            _updateWindow.Closed += (_, _) => _updateWindow = null;
+        }
+        _updateWindow.Render(_updates.Status);
+        _updateWindow.Show();
+        _updateWindow.Activate();
+        await _updates.RunAsync();
     }
 
     private void OnStartupToggleRequested(bool shouldEnable)

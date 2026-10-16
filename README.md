@@ -19,25 +19,35 @@ A small Windows tray utility for finding and freeing TCP ports used by local dev
 - **Light on resources.** Refreshes every two seconds while open and every five seconds while hidden, and runs in Windows efficiency mode while it sits in the tray.
 - Follows the Windows light/dark theme, optional **Start with Windows**, and restarts elevated (UAC) when Windows denies a termination.
 
-UDP listeners, Docker- and WSL-specific controls, code signing, an installer and automatic updates are currently out of scope.
+UDP listeners, Docker- and WSL-specific controls, code signing and unattended updates are currently out of scope.
 
 ## Install
 
-1. Download `PortManager.exe` from the [latest release](https://github.com/0xMalaz/PortManager/releases/latest).
-2. Put it in a stable folder, for example `%LOCALAPPDATA%\Programs\PortManager`.
-3. Run it. No installer and no .NET runtime are needed; the executable is self-contained.
+1. Download `PortManager-Setup.exe` from the [latest release](https://github.com/0xMalaz/PortManager/releases/latest).
+2. Run the installer. It installs for your Windows user; no .NET runtime is needed.
+3. Open Port Manager from the Start menu.
 4. Optionally right-click the tray icon and enable **Start with Windows**.
 
 > **SmartScreen warning:** the executable is not code-signed, so Windows may show "Windows protected your PC" on first launch. Choose **More info → Run anyway**, or build it yourself from source (below).
 
 If the icon is hidden under the `^` overflow menu, drag it into the visible area of the taskbar, or turn it on in **Settings → Personalization → Taskbar → Other system tray icons**.
 
-To uninstall, turn off **Start with Windows** in the tray menu, choose **Exit**, and delete the executable. Port Manager stores no settings files; the only thing it writes is the optional per-user startup entry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+To uninstall, choose **Exit**, then remove Port Manager in Windows **Installed apps**. The startup registration is removed, but your preference is retained in `HKCU\Software\0xMalaz\PortManager` and restored on reinstall. Updates also preserve it. Search text, filters and listener history remain session-only.
+
+Existing portable users: exit the old copy, install the new release once, then delete the old executable. Launching the installed app migrates an enabled startup entry. Old portable executables cannot acquire an installer through an in-app update.
+
+### Updates
+
+Right-click the tray icon and choose **Check for updates**. A window shows the check result and download progress. When a newer version finishes downloading, Port Manager closes gracefully, applies it and relaunches automatically. Repeated clicks cannot start overlapping operations. A previously downloaded update is applied without another download; failures leave the app open and can be retried through the same action.
+
+There are no background update checks, automatic downloads or startup update application. Unpackaged/development builds explain that an installed copy is required. Closing the progress window hides it; it does not cancel the update. **Exit** cancels outstanding work before an update has been handed to the installer.
+
+See [release and local update testing](docs/updates.md) for packaging, settings and verification details.
 
 ## Usage
 
 - **Left-click** the tray icon to toggle the popup. Click elsewhere or press **Esc** to hide it again.
-- **Right-click** the tray icon for **Open**, **Refresh**, **Start with Windows** and **Exit**.
+- **Right-click** the tray icon for **Open**, **Refresh**, **Check for updates**, **Start with Windows** and **Exit**.
 - Use the **All / Dev / Other** filters and the search box to find a port, then press **×** on its row and confirm.
 
 Closing the popup only hides it. Use **Exit** from the tray menu to quit Port Manager.
