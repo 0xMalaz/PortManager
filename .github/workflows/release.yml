@@ -38,6 +38,7 @@ jobs:
           dotnet test PortManager.sln -c Release
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
           ./scripts/Test-ReleasePublishing.ps1
+          ./scripts/Test-UpdateBuildModes.ps1
       - name: Find previous compatible release
         run: |
           $json = gh api "repos/$env:RELEASE_REPO/releases?per_page=100" --paginate --slurp

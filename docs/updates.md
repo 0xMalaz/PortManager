@@ -10,7 +10,7 @@ PortManager is a Windows x64 .NET 10 WPF application with a WinForms tray icon a
 
 Permanent package ID: **`0xMalaz.PortManager`**. Do not rename it after publishing. Default installation is under `%LOCALAPPDATA%\0xMalaz.PortManager`. The Start with Windows preference is stored separately in `HKCU\Software\0xMalaz\PortManager`. The uninstall hook removes only the Run registration, preserving this preference across reinstall. Future durable preferences must also live outside the install tree. Search/filter/history are not persisted today.
 
-The SDK and local `vpk` tool are both pinned to **1.2.161**. Both versions were verified against the NuGet feeds, and the installed CLI help was checked. Update both pins together. Relevant upstream documentation:
+The SDK and local `vpk` tool are both pinned to **1.2.161**. Both versions were verified against the NuGet feeds, and the installed CLI help was checked. Update both pins together. Packaging checks that the local-feed compilation symbol matches the requested mode; CI also verifies default, enabled and disabled Release modes with `scripts/Test-UpdateBuildModes.ps1`. Relevant upstream documentation:
 
 - [WPF bootstrap](https://docs.velopack.io/getting-started/wpf)
 - [Manual integration, sources and startup behavior](https://docs.velopack.io/integrating/overview)

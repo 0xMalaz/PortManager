@@ -74,7 +74,11 @@ public partial class App : System.Windows.Application
         _trayIcon.StartupToggleRequested += OnStartupToggleRequested;
         _trayIcon.ExitRequested += (_, _) => Dispatcher.Invoke(RequestShutdown);
         _updates = new UpdateCoordinator(new VelopackAppUpdater(), RequestShutdown);
-        _updates.StatusChanged += status => _updateWindow?.Render(status);
+        _updates.StatusChanged += status =>
+        {
+            _updateWindow?.Render(status);
+            UpdateEfficiencyMode();
+        };
         _trayIcon.UpdateRequested += (_, _) => Dispatcher.Invoke(CheckForUpdates);
 
         _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
@@ -104,7 +108,7 @@ public partial class App : System.Windows.Application
         }
         else
         {
-            ProcessPowerThrottling.SetEfficiencyMode(true);
+            UpdateEfficiencyMode();
         }
     }
 
@@ -190,7 +194,7 @@ public partial class App : System.Windows.Application
 
         var isVisible = _popupWindow.IsVisible;
         _viewModel.IsViewVisible = isVisible;
-        ProcessPowerThrottling.SetEfficiencyMode(!isVisible);
+        UpdateEfficiencyMode();
 
         _refreshTimer.Interval = isVisible
             ? TimeSpan.FromSeconds(2)
@@ -200,6 +204,12 @@ public partial class App : System.Windows.Application
         {
             _ = _viewModel.RefreshInBackgroundAsync();
         }
+    }
+
+    private void UpdateEfficiencyMode()
+    {
+        var updating = _updates?.Status.Stage is UpdateStage.Checking or UpdateStage.Downloading or UpdateStage.Restarting;
+        ProcessPowerThrottling.SetEfficiencyMode(_popupWindow?.IsVisible != true && !updating);
     }
 
     private void RequestShutdown()

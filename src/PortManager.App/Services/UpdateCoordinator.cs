@@ -45,6 +45,8 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown) : 
                 });
                 try { await updater.DownloadAsync(progress, token); }
                 finally { downloading = false; }
+                token.ThrowIfCancellationRequested();
+                Report(new(UpdateStage.Downloading, $"Downloaded {version}: 100%", 100));
             }
 
             token.ThrowIfCancellationRequested();

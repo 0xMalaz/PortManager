@@ -29,6 +29,12 @@ try {
     dotnet tool restore
     if ($LASTEXITCODE -ne 0) { throw 'Tool restore failed.' }
     $localFeed = if ($LocalFeedTest) { 'true' } else { 'false' }
+    $symbols = dotnet msbuild src/PortManager.App/PortManager.App.csproj -nologo -p:Configuration=Release `
+        "-p:EnableLocalUpdateFeed=$localFeed" -getProperty:DefineConstants
+    if ($LASTEXITCODE -ne 0) { throw 'Build symbol evaluation failed.' }
+    if (((($symbols -join '') -split ';') -contains 'LOCAL_UPDATE_FEED') -ne [bool]$LocalFeedTest) {
+        throw 'Local-feed build symbols do not match the requested package mode.'
+    }
     dotnet publish src/PortManager.App/PortManager.App.csproj -c Release -r win-x64 --self-contained true `
         "-p:Version=$Version" "-p:EnableLocalUpdateFeed=$localFeed" -o $publishDir
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }

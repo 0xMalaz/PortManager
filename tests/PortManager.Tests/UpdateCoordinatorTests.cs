@@ -30,11 +30,15 @@ public sealed class UpdateCoordinatorTests
     public async Task Download_and_apply_precede_graceful_shutdown_and_only_run_once()
     {
         var fake = new FakeUpdater();
+        var statuses = new List<UpdateStatus>();
         using var coordinator = new UpdateCoordinator(fake, () => fake.Calls.Add("shutdown"));
+        coordinator.StatusChanged += statuses.Add;
         await coordinator.RunAsync();
         await coordinator.RunAsync();
         CollectionAssert.AreEqual(new[] { "check", "download", "apply", "shutdown" }, fake.Calls);
         Assert.AreEqual(UpdateStage.Restarting, coordinator.Status.Stage);
+        Assert.AreEqual(UpdateStage.Downloading, statuses[^2].Stage);
+        Assert.AreEqual(100, statuses[^2].Progress);
     }
 
     [TestMethod]
@@ -108,7 +112,6 @@ public sealed class UpdateCoordinatorTests
         public Task DownloadAsync(IProgress<int> progress, CancellationToken cancellationToken)
         {
             Call("download");
-            progress.Report(50);
             PendingVersion = Available;
             return Task.CompletedTask;
         }

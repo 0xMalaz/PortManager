@@ -29,7 +29,7 @@
     <Page Include="App.xaml" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'EnableLocalUpdateFeed' == 'true'">
+  <PropertyGroup Condition="'$(EnableLocalUpdateFeed)' == 'true'">
     <DefineConstants>$(DefineConstants);LOCAL_UPDATE_FEED</DefineConstants>
   </PropertyGroup>
 
