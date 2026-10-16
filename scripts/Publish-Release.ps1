@@ -23,6 +23,9 @@ foreach ($required in @("0xMalaz.PortManager-$version-full.nupkg", 'releases.win
     if (!(Test-Path (Join-Path $OutputDir $required))) { throw "Missing release asset: $required" }
 }
 
+gh api "repos/$Repository/git/ref/tags/$Tag" --silent
+if ($LASTEXITCODE -ne 0) { throw 'Cannot verify the existing release tag.' }
+
 # Only drafts may be discarded. Never use --clobber or delete the tag.
 # The workflow serializes all releases; maintainers must not publish a draft while it is being built.
 $existing = @(Get-Releases | Where-Object tag_name -CEQ $Tag)
@@ -33,11 +36,14 @@ if ($existing.Count -eq 1) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not remove failed draft.' }
 }
 
-gh release create $Tag --repo $Repository --verify-tag --draft --title "Port Manager $version" --generate-notes
+$createdJson = gh api --method POST "repos/$Repository/releases" -f "tag_name=$Tag" `
+    -f "name=Port Manager $version" -F draft=true -F generate_release_notes=true
 if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed.' }
-$created = @(Get-Releases | Where-Object tag_name -CEQ $Tag)
-if ($created.Count -ne 1) { throw 'Cannot identify created draft.' }
-$id = $created[0].id
+# Use the creation response, not a second list call: GitHub's release list can lag
+# behind a successful creation and omit the draft we just made.
+$created = $createdJson | ConvertFrom-Json
+if (!$created.id -or !$created.draft -or $created.tag_name -cne $Tag) { throw 'Invalid draft creation response.' }
+$id = $created.id
 
 # Upload the whole feed (including the previous full package referenced by its index), installer,
 # and build manifest. Each upload must succeed before the release becomes visible to clients.
