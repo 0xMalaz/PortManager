@@ -242,6 +242,9 @@ public sealed class PopupWindowViewModelTests
             };
 
             provider.Snapshot = [first with { }, second with { }];
+            Assert.IsTrue(SpinWait.SpinUntil(
+                () => DateTimeOffset.UtcNow > viewModel.CurrentTimeUtc,
+                TimeSpan.FromSeconds(1)), "Wait for a new clock tick before checking the notification.");
             viewModel.RefreshInBackgroundAsync().GetAwaiter().GetResult();
 
             Assert.AreEqual(0, changes);
