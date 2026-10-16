@@ -61,9 +61,10 @@ public sealed class WindowsPortSnapshotProvider : IPortSnapshotProvider
     private IReadOnlyList<PortListener> BuildSnapshot(CancellationToken cancellationToken)
     {
         var endpoints = _tableReader.ReadEndpoints();
-        var listenerGroups = endpoints
+        var listenersByEndpoint = endpoints
             .Where(endpoint => endpoint.State == TcpEndpointState.Listen)
-            .GroupBy(endpoint => (endpoint.Port, endpoint.ProcessId))
+            .ToLookup(endpoint => (endpoint.Port, endpoint.ProcessId));
+        var listenerGroups = listenersByEndpoint
             .OrderBy(group => group.Key.Port)
             .ThenBy(group => group.Key.ProcessId)
             .ToArray();
@@ -102,12 +103,19 @@ public sealed class WindowsPortSnapshotProvider : IPortSnapshotProvider
         PopulateCommandLineCache(contexts);
         PruneIdentityCaches(contexts);
 
-        var connectedPorts = endpoints
-            .Where(endpoint => endpoint.State is not TcpEndpointState.Listen and
-                               not TcpEndpointState.Closed and
-                               not TcpEndpointState.DeleteTcb)
-            .Select(endpoint => (endpoint.Port, endpoint.ProcessId))
-            .ToHashSet();
+        // Outbound connections cannot update a listener's activity. Reuse the grouping lookup
+        // so the activity set grows with listening endpoints, not every connection on the machine.
+        var connectedPorts = new HashSet<(int Port, int ProcessId)>();
+        foreach (var endpoint in endpoints)
+        {
+            if (endpoint.State is not TcpEndpointState.Listen and
+                                  not TcpEndpointState.Closed and
+                                  not TcpEndpointState.DeleteTcb &&
+                listenersByEndpoint.Contains((endpoint.Port, endpoint.ProcessId)))
+            {
+                connectedPorts.Add((endpoint.Port, endpoint.ProcessId));
+            }
+        }
         var observedAtUtc = _timeProvider.GetUtcNow();
         var activity = _activityTracker.Update(
             contexts.Select(context => (context.ActivityKey, context.Metadata.StartTimeUtc)).ToArray(),

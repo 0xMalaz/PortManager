@@ -174,6 +174,82 @@ public sealed class WindowsPortSnapshotProviderTests
         Assert.AreEqual(PortActivitySource.ObservedConnection, connected[1].LastActivitySource);
     }
 
+    [TestMethod]
+    [DataRow((int)TcpEndpointState.Closed, false)]
+    [DataRow((int)TcpEndpointState.Listen, false)]
+    [DataRow((int)TcpEndpointState.SynSent, true)]
+    [DataRow((int)TcpEndpointState.SynReceived, true)]
+    [DataRow((int)TcpEndpointState.Established, true)]
+    [DataRow((int)TcpEndpointState.FinWait1, true)]
+    [DataRow((int)TcpEndpointState.FinWait2, true)]
+    [DataRow((int)TcpEndpointState.CloseWait, true)]
+    [DataRow((int)TcpEndpointState.Closing, true)]
+    [DataRow((int)TcpEndpointState.LastAck, true)]
+    [DataRow((int)TcpEndpointState.TimeWait, true)]
+    [DataRow((int)TcpEndpointState.DeleteTcb, false)]
+    [DataRow(999, true)]
+    public async Task GetListeners_preserves_activity_state_rules(int stateValue, bool observesConnection)
+    {
+        var state = (TcpEndpointState)stateValue;
+        var now = new DateTimeOffset(2026, 8, 3, 12, 0, 0, TimeSpan.Zero);
+        var reader = new FakeTcpTableReader(
+        [
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", state),
+            new RawTcpEndpoint(3000, 5678, null, TcpEndpointState.Established),
+            new RawTcpEndpoint(5000, 1234, null, TcpEndpointState.Established)
+        ]);
+        var provider = new WindowsPortSnapshotProvider(reader, currentProcessId: -1,
+            new CountingCommandLineReader("node"), timeProvider: new MutableTimeProvider(now),
+            metadataReader: new CountingMetadataReader());
+
+        var listeners = await provider.GetListenersAsync();
+
+        Assert.HasCount(1, listeners);
+        Assert.AreEqual(observesConnection ? PortActivitySource.ObservedConnection : PortActivitySource.ProcessStart,
+            listeners[0].LastActivitySource);
+        Assert.AreEqual(observesConnection ? now : now.AddHours(-2), listeners[0].LastActiveUtc);
+    }
+
+    [TestMethod]
+    public async Task GetListeners_ignores_outbound_noise_and_clears_activity_when_listener_disappears()
+    {
+        var now = new DateTimeOffset(2026, 8, 3, 12, 0, 0, TimeSpan.Zero);
+        var time = new MutableTimeProvider(now);
+        var noise = Enumerable.Range(10000, 2000)
+            .Select(port => new RawTcpEndpoint(port, 5678, null, TcpEndpointState.Established)).ToArray();
+        var reader = new FakeTcpTableReader(
+        [
+            .. noise,
+            new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(3000, 1234, "::1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(3000, 1234, null, TcpEndpointState.Established),
+            new RawTcpEndpoint(3000, 1234, null, TcpEndpointState.Established),
+            new RawTcpEndpoint(5000, 1234, "::1", TcpEndpointState.Listen),
+            new RawTcpEndpoint(5000, 5678, null, TcpEndpointState.Established)
+        ]);
+        var provider = new WindowsPortSnapshotProvider(reader, currentProcessId: -1,
+            new CountingCommandLineReader("node"), timeProvider: time,
+            metadataReader: new CountingMetadataReader());
+
+        var active = await provider.GetListenersAsync();
+        Assert.HasCount(2, active);
+        Assert.AreEqual(3000, active[0].Port);
+        Assert.HasCount(2, active[0].Addresses);
+        Assert.AreEqual(PortActivitySource.ObservedConnection, active[0].LastActivitySource);
+        Assert.AreEqual(PortActivitySource.ProcessStart, active[1].LastActivitySource);
+
+        reader.Endpoints = [.. noise, new RawTcpEndpoint(3000, 1234, null, TcpEndpointState.TimeWait)];
+        Assert.IsEmpty(await provider.GetListenersAsync());
+
+        time.UtcNow = now.AddMinutes(1);
+        reader.Endpoints = [.. noise, new RawTcpEndpoint(3000, 1234, "127.0.0.1", TcpEndpointState.Listen)];
+        var returned = await provider.GetListenersAsync();
+        Assert.HasCount(1, returned);
+        Assert.AreEqual(PortActivitySource.ProcessStart, returned[0].LastActivitySource);
+        Assert.AreEqual(now.AddHours(-2), returned[0].LastActiveUtc);
+    }
+
     private sealed class FakeTcpTableReader(IReadOnlyList<RawTcpEndpoint> endpoints) : ITcpTableReader
     {
         public IReadOnlyList<RawTcpEndpoint> Endpoints { get; set; } = endpoints;

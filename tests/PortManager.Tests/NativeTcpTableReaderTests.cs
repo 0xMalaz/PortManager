@@ -93,4 +93,56 @@ public sealed class NativeTcpTableReaderTests
 
     private static uint EncodePort(int port) =>
         unchecked((uint)(ushort)IPAddress.HostToNetworkOrder(unchecked((short)port)));
+
+    [TestMethod]
+    public void AppendTables_preserves_every_row_and_family_order_in_one_destination()
+    {
+        var ipv4 = Marshal.AllocHGlobal(sizeof(uint) + 2 * 24);
+        var ipv6 = Marshal.AllocHGlobal(sizeof(uint) + 2 * 56);
+        try
+        {
+            Marshal.WriteInt32(ipv4, 2);
+            Marshal.WriteInt32(ipv6, 2);
+            for (var index = 0; index < 2; index++)
+            {
+                var row4 = IntPtr.Add(ipv4, sizeof(uint) + index * 24);
+                Marshal.WriteInt32(row4, 0, (int)(index == 0 ? TcpEndpointState.Listen : TcpEndpointState.TimeWait));
+                Marshal.WriteInt32(row4, 4, BitConverter.ToInt32(IPAddress.Loopback.GetAddressBytes()));
+                Marshal.WriteInt32(row4, 8, unchecked((int)EncodePort(3000 + index)));
+                Marshal.WriteInt32(row4, 20, 100 + index);
+
+                var row6 = IntPtr.Add(ipv6, sizeof(uint) + index * 56);
+                Marshal.Copy(IPAddress.Parse("fe80::1234").GetAddressBytes(), 0, row6, 16);
+                Marshal.WriteInt32(row6, 16, 7);
+                Marshal.WriteInt32(row6, 20, unchecked((int)EncodePort(5000 + index)));
+                Marshal.WriteInt32(row6, 48, (int)(index == 0 ? TcpEndpointState.Listen : TcpEndpointState.Established));
+                Marshal.WriteInt32(row6, 52, 200 + index);
+            }
+
+            var sentinel = new RawTcpEndpoint(80, 1, "0.0.0.0", TcpEndpointState.Listen);
+            var rows = new List<RawTcpEndpoint> { sentinel };
+            NativeTcpTableReader.AppendIpv4Table(ipv4, rows);
+            NativeTcpTableReader.AppendIpv6Table(ipv6, rows);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                sentinel,
+                new RawTcpEndpoint(3000, 100, "127.0.0.1", TcpEndpointState.Listen),
+                new RawTcpEndpoint(3001, 101, null, TcpEndpointState.TimeWait),
+                new RawTcpEndpoint(5000, 200, "fe80::1234%7", TcpEndpointState.Listen),
+                new RawTcpEndpoint(5001, 201, null, TcpEndpointState.Established)
+            }, rows);
+
+            Marshal.WriteInt32(ipv4, 0);
+            Marshal.WriteInt32(ipv6, 0);
+            NativeTcpTableReader.AppendIpv4Table(ipv4, rows);
+            NativeTcpTableReader.AppendIpv6Table(ipv6, rows);
+            Assert.HasCount(5, rows, "Empty tables must preserve rows already read from the other family.");
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(ipv4);
+            Marshal.FreeHGlobal(ipv6);
+        }
+    }
 }
