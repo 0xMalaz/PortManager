@@ -1,3 +1,5 @@
+using PortManager.Infrastructure;
+
 namespace PortManager.Models;
 
 public enum PortCategory
@@ -39,7 +41,7 @@ public sealed record PortListener(
         {
             if (Addresses.Count == 0)
             {
-                return "Unknown address";
+                return Strings.UnknownAddress;
             }
 
             var allLoopback = true;
@@ -48,7 +50,7 @@ public sealed record PortListener(
                 var address = Addresses[index];
                 if (address is "0.0.0.0" or "::")
                 {
-                    return "All interfaces";
+                    return Strings.AllInterfaces;
                 }
 
                 allLoopback &= address is "127.0.0.1" or "::1";
@@ -77,17 +79,17 @@ internal static class PortActivityFormatter
         var elapsed = now - timestamp;
         if (elapsed < TimeSpan.Zero || elapsed < TimeSpan.FromMinutes(1))
         {
-            return "just now";
+            return Strings.JustNow;
         }
 
         if (elapsed < TimeSpan.FromHours(1))
         {
-            return $"{Math.Max(1, (int)elapsed.TotalMinutes)}m ago";
+            return Strings.MinutesAgo(Math.Max(1, (int)elapsed.TotalMinutes));
         }
 
         if (elapsed < TimeSpan.FromDays(1))
         {
-            return $"{Math.Max(1, (int)elapsed.TotalHours)}h ago";
+            return Strings.HoursAgo(Math.Max(1, (int)elapsed.TotalHours));
         }
 
         return timestamp.ToLocalTime().ToString("g");

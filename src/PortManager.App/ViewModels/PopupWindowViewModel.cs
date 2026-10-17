@@ -20,7 +20,7 @@ public sealed class PopupWindowViewModel : ObservableObject
     private string _searchText = string.Empty;
     private string _errorMessage = string.Empty;
     private string _statusMessage = string.Empty;
-    private string _updatedText = "Not updated yet";
+    private string _updatedText = Strings.NotUpdatedYet;
     private bool _isBusy;
     private PortCategory? _selectedCategory = PortCategory.Dev;
     private IReadOnlyList<PortListener> _snapshot = [];
@@ -66,17 +66,17 @@ public sealed class PopupWindowViewModel : ObservableObject
 
     public int ListenerCount => _snapshot.Count;
 
-    public string ListenerCountText => $"{ListenerCount} listening";
+    public string ListenerCountText => Strings.ListeningCount(ListenerCount);
 
     public int DevCount => _devCount;
 
     public int OtherCount => _otherCount;
 
-    public string AllFilterText => $"All  {ListenerCount}";
+    public string AllFilterText => Strings.AllFilter(ListenerCount);
 
-    public string DevFilterText => $"Dev  {DevCount}";
+    public string DevFilterText => Strings.DevFilter(DevCount);
 
-    public string OtherFilterText => $"Other  {OtherCount}";
+    public string OtherFilterText => Strings.OtherFilter(OtherCount);
 
     public bool IsAllSelected => _selectedCategory is null;
 
@@ -183,8 +183,8 @@ public sealed class PopupWindowViewModel : ObservableObject
     public bool ShowEmptyState => !IsBusy && !HasError && !HasVisibleListeners;
 
     public string EmptyMessage => string.IsNullOrWhiteSpace(SearchText)
-        ? "No TCP listeners are active."
-        : "No listeners match your search.";
+        ? Strings.NoListeners
+        : Strings.NoSearchMatches;
 
     public Task RefreshAsync() => RefreshAsync(showProgress: true);
 
@@ -211,7 +211,7 @@ public sealed class PopupWindowViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            ErrorMessage = $"Could not read active ports: {exception.Message}";
+            ErrorMessage = Strings.CouldNotReadPorts(exception.Message);
         }
         finally
         {
@@ -264,7 +264,7 @@ public sealed class PopupWindowViewModel : ObservableObject
     {
         if (_snapshotTakenAt is { } snapshotTakenAt)
         {
-            UpdatedText = $"Updated {snapshotTakenAt:t}";
+            UpdatedText = Strings.UpdatedAt(snapshotTakenAt);
         }
 
         if (SyncListeners())
@@ -362,7 +362,7 @@ public sealed class PopupWindowViewModel : ObservableObject
             var preview = await _terminationService.PrepareAsync(listener);
             if (!_dialogService.ConfirmTermination(preview))
             {
-                StatusMessage = "Termination cancelled.";
+                StatusMessage = Strings.TerminationCancelled;
                 return;
             }
 
@@ -395,7 +395,7 @@ public sealed class PopupWindowViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            ErrorMessage = $"Could not terminate the process: {exception.Message}";
+            ErrorMessage = Strings.CouldNotTerminate(exception.Message);
         }
         finally
         {

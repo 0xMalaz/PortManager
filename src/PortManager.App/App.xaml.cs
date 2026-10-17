@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
+using PortManager.Infrastructure;
 using PortManager.Native;
 using PortManager.Services;
 using PortManager.ViewModels;
@@ -155,7 +156,7 @@ public partial class App : System.Windows.Application
         {
             System.Windows.MessageBox.Show(
                 _popupWindow,
-                $"Could not update Windows startup: {exception.Message}",
+                Strings.CouldNotUpdateStartup(exception.Message),
                 "Port Manager",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);

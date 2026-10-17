@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
+using PortManager.Infrastructure;
 using PortManager.Services;
 
 namespace PortManager.Views;
@@ -11,7 +13,9 @@ internal sealed class UpdateWindow : Window
 
     public UpdateWindow()
     {
-        Title = "Port Manager updates";
+        Title = Strings.UpdatesWindowTitle;
+        // An explicit icon keeps the taskbar from showing a stale icon Windows cached for the exe path.
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/PortManager.ico"));
         SetResourceReference(BackgroundProperty, "WindowBackgroundBrush");
         Width = 430;
         SizeToContent = SizeToContent.Height;

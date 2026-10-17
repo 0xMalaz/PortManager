@@ -4,8 +4,10 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:PortManager.Models"
+        xmlns:infra="clr-namespace:PortManager.Infrastructure"
         mc:Ignorable="d"
         Title="Port Manager"
+        Icon="/Assets/PortManager.ico"
         Width="386"
         Height="510"
         MinWidth="386"
@@ -65,7 +67,7 @@
                 <Button Grid.Column="3"
                         Style="{StaticResource IconButtonStyle}"
                         Command="{Binding RefreshCommand}"
-                        AutomationProperties.Name="Refresh active ports">
+                        AutomationProperties.Name="{x:Static infra:Strings.RefreshActivePorts}">
                     <TextBlock Text="&#xE72C;"
                                FontFamily="Segoe MDL2 Assets"
                                FontSize="12" />
@@ -99,8 +101,8 @@
                                  BorderThickness="0"
                                  FontFamily="Segoe UI Variable Text, Segoe UI"
                                  FontSize="11"
-                                 AutomationProperties.Name="Search ports or services" />
-                        <TextBlock Text="Port, service or PID..."
+                                 AutomationProperties.Name="{x:Static infra:Strings.SearchPortsOrServices}" />
+                        <TextBlock Text="{x:Static infra:Strings.SearchPlaceholder}"
                                    IsHitTestVisible="False"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource MutedBrush}"
@@ -120,23 +122,23 @@
                             Style="{StaticResource FilterButtonStyle}"
                             Tag="{Binding IsAllSelected}"
                             Command="{Binding ShowAllCommand}"
-                            AutomationProperties.Name="Show all listeners" />
+                            AutomationProperties.Name="{x:Static infra:Strings.ShowAllListeners}" />
                     <Button Content="{Binding DevFilterText}"
                             Style="{StaticResource FilterButtonStyle}"
                             Tag="{Binding IsDevSelected}"
                             Command="{Binding ShowDevCommand}"
-                            AutomationProperties.Name="Show development listeners" />
+                            AutomationProperties.Name="{x:Static infra:Strings.ShowDevListeners}" />
                     <Button Content="{Binding OtherFilterText}"
                             Style="{StaticResource FilterButtonStyle}"
                             Tag="{Binding IsOtherSelected}"
                             Command="{Binding ShowOtherCommand}"
-                            AutomationProperties.Name="Show other listeners" />
+                            AutomationProperties.Name="{x:Static infra:Strings.ShowOtherListeners}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            AutomationProperties.Name="Sorted by port">
+                            AutomationProperties.Name="{x:Static infra:Strings.SortedByPort}">
                     <TextBlock Text="&#xE71C;"
                                FontFamily="Segoe MDL2 Assets"
                                FontSize="9"
@@ -194,7 +196,7 @@
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource MutedBrush}" />
                         <TextBlock Grid.Column="2"
-                                   Text="ACTIVE"
+                                   Text="{x:Static infra:Strings.ActiveHeader}"
                                    FontSize="8"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource MutedBrush}" />
@@ -207,7 +209,7 @@
                          BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.IsVirtualizing="True"
-                         AutomationProperties.Name="Active TCP listeners">
+                         AutomationProperties.Name="{x:Static infra:Strings.ActiveTcpListeners}">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -325,7 +327,7 @@
                                         Style="{StaticResource KillButtonStyle}"
                                         Command="{Binding DataContext.KillCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         CommandParameter="{Binding}"
-                                        AutomationProperties.Name="{Binding Port, StringFormat=Kill process using port {0}}" />
+                                        AutomationProperties.Name="{Binding Port, StringFormat={x:Static infra:Strings.KillProcessUsingPortFormat}}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
