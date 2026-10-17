@@ -41,8 +41,6 @@
 
             <Grid Grid.Row="0" Margin="8,7,7,7">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -52,19 +50,7 @@
                            FontSize="13"
                            FontWeight="Bold" />
 
-                <Border Grid.Column="1"
-                        Margin="8,0,0,0"
-                        Padding="6,2"
-                        VerticalAlignment="Center"
-                        CornerRadius="4"
-                        Background="{DynamicResource SurfaceBrush}">
-                    <TextBlock Text="{Binding ListenerCountText}"
-                               FontFamily="Cascadia Mono, Consolas"
-                               FontSize="9"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                </Border>
-
-                <Button Grid.Column="3"
+                <Button Grid.Column="1"
                         Style="{StaticResource IconButtonStyle}"
                         Command="{Binding RefreshCommand}"
                         AutomationProperties.Name="{x:Static infra:Strings.RefreshActivePorts}">
@@ -79,8 +65,20 @@
                     Margin="8,0,8,7"
                     CornerRadius="5"
                     Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -98,6 +96,8 @@
                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                 CaretBrush="{DynamicResource AccentBrush}"
+                                 SelectionBrush="{DynamicResource AccentBrush}"
                                  BorderThickness="0"
                                  FontFamily="Segoe UI Variable Text, Segoe UI"
                                  FontSize="11"
@@ -112,45 +112,25 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="2" Margin="8,0,8,7">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="{Binding AllFilterText}"
-                            Style="{StaticResource FilterButtonStyle}"
-                            Tag="{Binding IsAllSelected}"
-                            Command="{Binding ShowAllCommand}"
-                            AutomationProperties.Name="{x:Static infra:Strings.ShowAllListeners}" />
-                    <Button Content="{Binding DevFilterText}"
-                            Style="{StaticResource FilterButtonStyle}"
-                            Tag="{Binding IsDevSelected}"
-                            Command="{Binding ShowDevCommand}"
-                            AutomationProperties.Name="{x:Static infra:Strings.ShowDevListeners}" />
-                    <Button Content="{Binding OtherFilterText}"
-                            Style="{StaticResource FilterButtonStyle}"
-                            Tag="{Binding IsOtherSelected}"
-                            Command="{Binding ShowOtherCommand}"
-                            AutomationProperties.Name="{x:Static infra:Strings.ShowOtherListeners}" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            AutomationProperties.Name="{x:Static infra:Strings.SortedByPort}">
-                    <TextBlock Text="&#xE71C;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="9"
-                               Foreground="{DynamicResource MutedBrush}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Margin="5,0,0,0"
-                               Text="Port"
-                               FontSize="10"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-            </Grid>
+            <StackPanel Grid.Row="2"
+                        Margin="8,0,8,7"
+                        Orientation="Horizontal">
+                <Button Content="{Binding AllFilterText}"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="{Binding IsAllSelected}"
+                        Command="{Binding ShowAllCommand}"
+                        AutomationProperties.Name="{x:Static infra:Strings.ShowAllListeners}" />
+                <Button Content="{Binding DevFilterText}"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="{Binding IsDevSelected}"
+                        Command="{Binding ShowDevCommand}"
+                        AutomationProperties.Name="{x:Static infra:Strings.ShowDevListeners}" />
+                <Button Content="{Binding OtherFilterText}"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="{Binding IsOtherSelected}"
+                        Command="{Binding ShowOtherCommand}"
+                        AutomationProperties.Name="{x:Static infra:Strings.ShowOtherListeners}" />
+            </StackPanel>
 
             <StackPanel Grid.Row="3">
                 <ProgressBar Height="2"
