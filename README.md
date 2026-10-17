@@ -12,6 +12,10 @@
 
 A Windows tray app that shows which process is using a TCP port and lets you stop it.
 
+<p align="center">
+  <img src="docs/images/screenshot.png" alt="Port Manager window listing Next.js, Vite, Django and FastAPI dev servers" width="386">
+</p>
+
 ## Features
 
 - Lists every TCP listener (IPv4 and IPv6) with its process, PID and port.
