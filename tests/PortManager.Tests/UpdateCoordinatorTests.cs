@@ -145,6 +145,33 @@ public sealed class UpdateCoordinatorTests
         CollectionAssert.AreEqual(new[] { "check", "check", "download", "apply", "shutdown" }, fake.Calls);
     }
 
+    [TestMethod]
+    public async Task Throttled_background_check_skips_recent_checks()
+    {
+        var time = new ManualTime();
+        var fake = new FakeUpdater { Available = null };
+        using var coordinator = new UpdateCoordinator(fake, () => Assert.Fail("Must not exit"), time);
+        var interval = TimeSpan.FromMinutes(15);
+        await coordinator.CheckInBackgroundAsync(interval);
+        time.Now += TimeSpan.FromMinutes(14);
+        await coordinator.CheckInBackgroundAsync(interval);
+        Assert.AreEqual(1, fake.Calls.Count);
+        time.Now += TimeSpan.FromMinutes(1);
+        await coordinator.CheckInBackgroundAsync(interval);
+        Assert.AreEqual(2, fake.Calls.Count);
+        await coordinator.RunAsync();
+        await coordinator.CheckInBackgroundAsync(interval);
+        Assert.AreEqual(3, fake.Calls.Count, "A manual check also resets the throttle.");
+        await coordinator.CheckInBackgroundAsync();
+        Assert.AreEqual(4, fake.Calls.Count, "Unthrottled polls always check.");
+    }
+
+    private sealed class ManualTime : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UnixEpoch;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
     private sealed class FakeUpdater : IAppUpdater
     {
         public bool CanUpdate { get; set; } = true;

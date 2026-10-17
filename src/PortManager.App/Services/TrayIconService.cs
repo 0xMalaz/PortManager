@@ -31,6 +31,7 @@ public sealed class TrayIconService : IDisposable
         }
 
         _contextMenu = new Forms.ContextMenuStrip();
+        _contextMenu.Opening += (_, _) => MenuOpening?.Invoke(this, EventArgs.Empty);
         _updateItem = new Forms.ToolStripMenuItem(CheckForUpdatesText);
         _updateItem.Click += (_, _) => UpdateRequested?.Invoke(this, EventArgs.Empty);
         _startWithWindowsItem = new Forms.ToolStripMenuItem("Start with Windows")
@@ -70,6 +71,8 @@ public sealed class TrayIconService : IDisposable
     public event EventHandler? ToggleRequested;
 
     public event EventHandler? UpdateRequested;
+
+    public event EventHandler? MenuOpening;
 
     public event Action<bool>? StartupToggleRequested;
 
