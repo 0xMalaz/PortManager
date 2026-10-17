@@ -95,6 +95,56 @@ public sealed class UpdateCoordinatorTests
         CollectionAssert.AreEqual(new[] { "check" }, fake.Calls);
     }
 
+    [TestMethod]
+    public async Task Background_check_reports_available_without_downloading()
+    {
+        var fake = new FakeUpdater();
+        using var coordinator = new UpdateCoordinator(fake, () => Assert.Fail("Must not exit"));
+        await coordinator.CheckInBackgroundAsync();
+        CollectionAssert.AreEqual(new[] { "check" }, fake.Calls);
+        Assert.AreEqual(UpdateStage.Available, coordinator.Status.Stage);
+        Assert.AreEqual("2.0.0", coordinator.Status.Version);
+    }
+
+    [TestMethod]
+    public async Task Background_check_stays_quiet_when_nothing_found_failed_or_unavailable()
+    {
+        var statuses = new List<UpdateStatus>();
+        foreach (var fake in new[] { new FakeUpdater { Available = null }, new FakeUpdater { FailAt = "check" }, new FakeUpdater { CanUpdate = false } })
+        {
+            using var coordinator = new UpdateCoordinator(fake, () => Assert.Fail("Must not exit"));
+            coordinator.StatusChanged += statuses.Add;
+            await coordinator.CheckInBackgroundAsync();
+            Assert.AreEqual(UpdateStage.Idle, coordinator.Status.Stage);
+        }
+        Assert.IsEmpty(statuses);
+    }
+
+    [TestMethod]
+    public async Task Background_check_uses_pending_download_without_network()
+    {
+        var fake = new FakeUpdater { PendingVersion = "2.0.0" };
+        using var coordinator = new UpdateCoordinator(fake, () => Assert.Fail("Must not exit"));
+        await coordinator.CheckInBackgroundAsync();
+        Assert.IsEmpty(fake.Calls);
+        Assert.AreEqual(UpdateStage.Available, coordinator.Status.Stage);
+    }
+
+    [TestMethod]
+    public async Task Click_during_background_check_waits_then_installs()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fake = new FakeUpdater { CheckGate = gate.Task };
+        using var coordinator = new UpdateCoordinator(fake, () => fake.Calls.Add("shutdown"));
+        var poll = coordinator.CheckInBackgroundAsync();
+        var click = coordinator.RunAsync();
+        Assert.IsFalse(click.IsCompleted);
+        gate.SetResult();
+        await poll;
+        await click;
+        CollectionAssert.AreEqual(new[] { "check", "check", "download", "apply", "shutdown" }, fake.Calls);
+    }
+
     private sealed class FakeUpdater : IAppUpdater
     {
         public bool CanUpdate { get; set; } = true;

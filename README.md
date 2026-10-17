@@ -27,7 +27,7 @@ Download `PortManager-Setup.exe` from the [latest release](https://github.com/0x
 
 The app is not code-signed, so SmartScreen may warn you on first run. Click **More info** and then **Run anyway**.
 
-To update, right-click the tray icon and choose **Check for updates**.
+Port Manager checks for new releases at startup and every 8 hours. When one is available, the tray menu shows **Install update**. You can also choose **Check for updates** at any time.
 
 ## Usage
 
