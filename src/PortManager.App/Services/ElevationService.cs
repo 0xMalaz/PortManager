@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using PortManager.Infrastructure;
 
 namespace PortManager.Services;
 
@@ -15,7 +16,7 @@ public sealed class ElevationService : IElevationService
         var executablePath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(executablePath))
         {
-            errorMessage = "The Port Manager executable path is unavailable.";
+            errorMessage = Strings.ExecutablePathUnavailable;
             return false;
         }
 
@@ -39,7 +40,7 @@ public sealed class ElevationService : IElevationService
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
-            errorMessage = $"Port Manager could not restart as administrator: {exception.Message}";
+            errorMessage = Strings.CouldNotRestartAsAdministrator(exception.Message);
             return false;
         }
     }

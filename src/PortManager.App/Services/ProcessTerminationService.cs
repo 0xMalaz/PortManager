@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using PortManager.Infrastructure;
 using PortManager.Models;
 using PortManager.Native;
 
@@ -40,7 +41,7 @@ public sealed class ProcessTerminationService : IProcessTerminationService
     {
         if (listener.IsProtected)
         {
-            throw new ProtectedProcessException(listener.ProtectionReason ?? "This process is protected.");
+            throw new ProtectedProcessException(listener.ProtectionReason ?? Strings.ProcessProtected);
         }
 
         var snapshot = await _snapshotProvider.GetListenersAsync(cancellationToken);
@@ -48,12 +49,12 @@ public sealed class ProcessTerminationService : IProcessTerminationService
 
         if (current is null)
         {
-            throw new ListenerStaleException($"Port {listener.Port} is no longer owned by that process.");
+            throw new ListenerStaleException(Strings.PortNoLongerOwned(listener.Port));
         }
 
         if (current.IsProtected)
         {
-            throw new ProtectedProcessException(current.ProtectionReason ?? "This process is protected.");
+            throw new ProtectedProcessException(current.ProtectionReason ?? Strings.ProcessProtected);
         }
 
         var ownedPorts = snapshot
@@ -79,14 +80,14 @@ public sealed class ProcessTerminationService : IProcessTerminationService
             {
                 return new TerminationResult(
                     TerminationOutcome.Stale,
-                    $"Port {preview.Listener.Port} changed before it could be terminated.");
+                    Strings.PortChangedBeforeTermination(preview.Listener.Port));
             }
 
             if (current.IsProtected)
             {
                 return new TerminationResult(
                     TerminationOutcome.Protected,
-                    current.ProtectionReason ?? "This process is protected.",
+                    current.ProtectionReason ?? Strings.ProcessProtected,
                     current);
             }
 
@@ -98,7 +99,7 @@ public sealed class ProcessTerminationService : IProcessTerminationService
         {
             return new TerminationResult(
                 TerminationOutcome.AccessDenied,
-                "Windows denied permission to terminate this process.");
+                Strings.AccessDenied);
         }
         catch (ArgumentException)
         {
@@ -116,13 +117,13 @@ public sealed class ProcessTerminationService : IProcessTerminationService
         {
             return new TerminationResult(
                 TerminationOutcome.Failed,
-                $"The process tree could not be fully terminated: {exception.GetBaseException().Message}");
+                Strings.ProcessTreeNotTerminated(exception.GetBaseException().Message));
         }
         catch (Win32Exception exception)
         {
             return new TerminationResult(
                 TerminationOutcome.Failed,
-                $"Windows could not terminate the process: {exception.Message}");
+                Strings.WindowsCouldNotTerminate(exception.Message));
         }
     }
 
@@ -167,7 +168,7 @@ public sealed class ProcessTerminationService : IProcessTerminationService
         using var process = Process.GetProcessById(listener.ProcessId);
         if (!ProcessIdentityMatches(process, listener))
         {
-            throw new ListenerStaleException("The process identity changed. The list has been refreshed.");
+            throw new ListenerStaleException(Strings.ProcessIdentityChanged);
         }
 
         process.Kill(entireProcessTree: true);
@@ -207,7 +208,7 @@ public sealed class ProcessTerminationService : IProcessTerminationService
             {
                 return new TerminationResult(
                     TerminationOutcome.Success,
-                    $"Port {port} is free.");
+                    Strings.PortIsFree(port));
             }
 
             await Task.Delay(_pollInterval, cancellationToken);
@@ -216,7 +217,7 @@ public sealed class ProcessTerminationService : IProcessTerminationService
 
         return new TerminationResult(
             TerminationOutcome.StillListening,
-            $"Port {port} is still listening under {currentOwner?.ProcessName ?? "another process"}.",
+            Strings.PortStillListening(port, currentOwner?.ProcessName ?? Strings.AnotherProcess),
             currentOwner);
     }
 
@@ -228,10 +229,10 @@ public sealed class ProcessTerminationService : IProcessTerminationService
         var currentOwner = snapshot.FirstOrDefault(listener => listener.Port == port);
 
         return currentOwner is null
-            ? new TerminationResult(TerminationOutcome.Success, $"Port {port} is free.")
+            ? new TerminationResult(TerminationOutcome.Success, Strings.PortIsFree(port))
             : new TerminationResult(
                 TerminationOutcome.Stale,
-                $"The original process exited, but port {port} now belongs to {currentOwner.ProcessName}.",
+                Strings.PortTakenOver(port, currentOwner.ProcessName),
                 currentOwner);
     }
 }

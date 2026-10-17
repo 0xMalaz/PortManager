@@ -1,3 +1,5 @@
+using PortManager.Infrastructure;
+
 namespace PortManager.Services;
 
 internal enum UpdateStage { Idle, Available, Checking, Downloading, NoUpdate, Unavailable, Failed, Restarting }
@@ -12,7 +14,7 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown, Ti
     private int _running;
     private bool _disposed;
     private Task _backgroundCheck = Task.CompletedTask;
-    public UpdateStatus Status { get; private set; } = new(UpdateStage.Idle, "Check for updates");
+    public UpdateStatus Status { get; private set; } = new(UpdateStage.Idle, Strings.CheckForUpdates);
     public event Action<UpdateStatus>? StatusChanged;
 
     public async Task RunAsync()
@@ -26,45 +28,45 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown, Ti
         {
             if (!updater.CanUpdate)
             {
-                Report(new(UpdateStage.Unavailable, "Updates are unavailable in development or unpackaged builds. Install PortManager-Setup.exe first."));
+                Report(new(UpdateStage.Unavailable, Strings.UpdatesUnavailable));
                 return;
             }
 
             if (updater.PendingVersion is null)
             {
-                Report(new(UpdateStage.Checking, "Checking for updates…"));
+                Report(new(UpdateStage.Checking, Strings.CheckingForUpdates));
                 _lastCheckedAt = _time.GetUtcNow();
                 var version = await updater.CheckAsync(token);
                 token.ThrowIfCancellationRequested();
                 if (version is null)
                 {
-                    Report(new(UpdateStage.NoUpdate, "Port Manager is up to date."));
+                    Report(new(UpdateStage.NoUpdate, Strings.UpToDate));
                     return;
                 }
 
-                Report(new(UpdateStage.Downloading, $"Downloading {version}…"));
+                Report(new(UpdateStage.Downloading, Strings.Downloading(version)));
                 var downloading = true;
                 var progress = new Progress<int>(percent =>
                 {
                     if (!_disposed && downloading && Status.Stage == UpdateStage.Downloading)
-                        Report(new(UpdateStage.Downloading, $"Downloading {version}: {Math.Clamp(percent, 0, 100)}%", Math.Clamp(percent, 0, 100)));
+                        Report(new(UpdateStage.Downloading, Strings.DownloadingProgress(version, Math.Clamp(percent, 0, 100)), Math.Clamp(percent, 0, 100)));
                 });
                 try { await updater.DownloadAsync(progress, token); }
                 finally { downloading = false; }
                 token.ThrowIfCancellationRequested();
-                Report(new(UpdateStage.Downloading, $"Downloaded {version}: 100%", 100));
+                Report(new(UpdateStage.Downloading, Strings.Downloaded(version), 100));
             }
 
             token.ThrowIfCancellationRequested();
             updater.ApplyAfterExit();
             restarting = true;
-            Report(new(UpdateStage.Restarting, "Restarting to apply the update…"));
+            Report(new(UpdateStage.Restarting, Strings.Restarting));
             shutdown();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception exception)
         {
-            Report(new(UpdateStage.Failed, $"Update failed: {exception.Message}\nChoose Check for updates to retry."));
+            Report(new(UpdateStage.Failed, Strings.UpdateFailed(exception.Message)));
         }
         finally
         {
@@ -91,7 +93,7 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown, Ti
             var version = updater.PendingVersion ?? await updater.CheckAsync(token);
             token.ThrowIfCancellationRequested();
             if (version is not null)
-                Report(new(UpdateStage.Available, $"Port Manager {version} is available.", Version: version));
+                Report(new(UpdateStage.Available, Strings.UpdateAvailable(version), Version: version));
         }
         catch (Exception) { /* Background checks stay quiet; the next poll or a manual check retries. */ }
         finally

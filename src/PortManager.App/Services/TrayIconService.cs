@@ -1,13 +1,12 @@
 using System.Drawing;
 using System.Windows;
+using PortManager.Infrastructure;
 using Forms = System.Windows.Forms;
 
 namespace PortManager.Services;
 
 public sealed class TrayIconService : IDisposable
 {
-    private const string CheckForUpdatesText = "Check for updates";
-
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly Forms.ContextMenuStrip _contextMenu;
     private readonly Forms.ToolStripMenuItem _updateItem;
@@ -32,14 +31,14 @@ public sealed class TrayIconService : IDisposable
 
         _contextMenu = new Forms.ContextMenuStrip();
         _contextMenu.Opening += (_, _) => MenuOpening?.Invoke(this, EventArgs.Empty);
-        _updateItem = new Forms.ToolStripMenuItem(CheckForUpdatesText);
+        _updateItem = new Forms.ToolStripMenuItem(Strings.CheckForUpdates);
         _updateItem.Click += (_, _) => UpdateRequested?.Invoke(this, EventArgs.Empty);
-        _startWithWindowsItem = new Forms.ToolStripMenuItem("Start with Windows")
+        _startWithWindowsItem = new Forms.ToolStripMenuItem(Strings.StartWithWindows)
         {
             Checked = startupEnabled,
             CheckOnClick = false
         };
-        var exitItem = new Forms.ToolStripMenuItem("Exit");
+        var exitItem = new Forms.ToolStripMenuItem(Strings.Exit);
 
         _startWithWindowsItem.Click += (_, _) =>
             StartupToggleRequested?.Invoke(!_startWithWindowsItem.Checked);
@@ -81,7 +80,7 @@ public sealed class TrayIconService : IDisposable
     public void SetStartupEnabled(bool enabled) => _startWithWindowsItem.Checked = enabled;
 
     public void SetAvailableUpdate(string? version) =>
-        _updateItem.Text = version is null ? CheckForUpdatesText : $"Install update ({version})";
+        _updateItem.Text = version is null ? Strings.CheckForUpdates : Strings.InstallUpdate(version);
 
     public void Dispose()
     {

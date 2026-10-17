@@ -1,3 +1,5 @@
+using PortManager.Infrastructure;
+
 namespace PortManager.Services;
 
 internal static class ProcessSafetyPolicy
@@ -28,22 +30,22 @@ internal static class ProcessSafetyPolicy
     {
         if (processId is 0 or 4)
         {
-            return (true, "Windows owns this system listener.");
+            return (true, Strings.SystemListener);
         }
 
         if (processId == currentProcessId)
         {
-            return (true, "Port Manager cannot terminate itself.");
+            return (true, Strings.CannotTerminateSelf);
         }
 
         if (CriticalProcessNames.Contains(processName))
         {
-            return (true, "This is a protected Windows process.");
+            return (true, Strings.ProtectedWindowsProcess);
         }
 
         if (IsInsideWindowsDirectory(executablePath))
         {
-            return (true, "Processes inside the Windows system directory are read-only.");
+            return (true, Strings.SystemDirectoryReadOnly);
         }
 
         return (false, null);

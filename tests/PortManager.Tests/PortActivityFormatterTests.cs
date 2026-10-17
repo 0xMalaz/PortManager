@@ -1,3 +1,4 @@
+using PortManager.Infrastructure;
 using PortManager.Models;
 
 namespace PortManager.Tests;
@@ -14,6 +15,23 @@ public sealed class PortActivityFormatterTests
     public void Format_uses_compact_relative_times(int secondsAgo, string expected)
     {
         Assert.AreEqual(expected, PortActivityFormatter.Format(Now.AddSeconds(-secondsAgo), Now));
+    }
+
+    [TestMethod]
+    [DataRow(30, "az önce")]
+    [DataRow(360, "6 dk önce")]
+    [DataRow(10_800, "3 sa önce")]
+    public void Format_uses_turkish_text_on_turkish_systems(int secondsAgo, string expected)
+    {
+        Strings.IsTurkish = true;
+        try
+        {
+            Assert.AreEqual(expected, PortActivityFormatter.Format(Now.AddSeconds(-secondsAgo), Now));
+        }
+        finally
+        {
+            Strings.IsTurkish = false;
+        }
     }
 
     [TestMethod]

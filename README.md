@@ -19,6 +19,7 @@ A Windows tray app that shows which process is using a TCP port and lets you sto
 - Search by port, process name, PID or service.
 - System processes are read-only, and every kill asks for confirmation first.
 - Follows the Windows light/dark theme.
+- English and Turkish, picked from the Windows display language.
 - Optional Start with Windows.
 
 ## Install

@@ -1,4 +1,5 @@
 using System.Windows;
+using PortManager.Infrastructure;
 using PortManager.Models;
 
 namespace PortManager.Services;
@@ -10,16 +11,13 @@ public sealed class WpfUserDialogService(
     public bool ConfirmTermination(TerminationPreview preview)
     {
         var ports = string.Join(", ", preview.OwnedPorts.Select(port => $":{port}"));
-        var message =
-            $"Kill {preview.Listener.ProcessName} (PID {preview.Listener.ProcessId})?{Environment.NewLine}{Environment.NewLine}" +
-            $"Listening TCP ports owned by this process: {ports}.{Environment.NewLine}{Environment.NewLine}" +
-            "The process and all of its child processes will be forcibly terminated. Unsaved work may be lost.";
+        var message = Strings.ConfirmKill(preview.Listener.ProcessName, preview.Listener.ProcessId, ports);
 
         return ShowConfirmation(message, MessageBoxImage.Warning);
     }
 
     public bool ConfirmRestartAsAdministrator() => ShowConfirmation(
-        "Windows denied permission to terminate this process. Restart Port Manager as administrator and try again?",
+        Strings.ConfirmRestartAsAdministrator,
         MessageBoxImage.Question);
 
     public void ShowError(string message)
