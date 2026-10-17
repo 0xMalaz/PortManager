@@ -18,6 +18,7 @@ public partial class App : System.Windows.Application
     private PopupWindow? _popupWindow;
     private PopupWindowViewModel? _viewModel;
     private DispatcherTimer? _refreshTimer;
+    private DispatcherTimer? _updatePollTimer;
     private bool _isExiting;
     private UpdateCoordinator? _updates;
     private UpdateWindow? _updateWindow;
@@ -75,9 +76,13 @@ public partial class App : System.Windows.Application
         _updates.StatusChanged += status =>
         {
             _updateWindow?.Render(status);
+            _trayIcon?.SetAvailableUpdate(status.Stage == UpdateStage.Available ? status.Version : null);
             UpdateEfficiencyMode();
         };
         _trayIcon.UpdateRequested += (_, _) => Dispatcher.Invoke(CheckForUpdates);
+        _updatePollTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(8) };
+        _updatePollTimer.Tick += async (_, _) => await _updates.CheckInBackgroundAsync();
+        _updatePollTimer.Start();
 
         _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
         _viewModel.IsViewVisible = false;
@@ -90,6 +95,7 @@ public partial class App : System.Windows.Application
         _refreshTimer.Start();
 
         await _viewModel.RefreshAsync();
+        _ = _updates.CheckInBackgroundAsync();
 
         if (!eventArgs.Args.Contains("--startup", StringComparer.OrdinalIgnoreCase))
         {
@@ -106,6 +112,7 @@ public partial class App : System.Windows.Application
         _updates?.Dispose();
         _updateWindow?.Close();
         _refreshTimer?.Stop();
+        _updatePollTimer?.Stop();
         _trayIcon?.Dispose();
         _popupWindow?.CloseForExit();
         _themeService?.Dispose();
