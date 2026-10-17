@@ -66,8 +66,6 @@ public sealed class PopupWindowViewModel : ObservableObject
 
     public int ListenerCount => _snapshot.Count;
 
-    public string ListenerCountText => Strings.ListeningCount(ListenerCount);
-
     public int DevCount => _devCount;
 
     public int OtherCount => _otherCount;
@@ -236,7 +234,6 @@ public sealed class PopupWindowViewModel : ObservableObject
         if (previousCount != snapshot.Count)
         {
             OnPropertyChanged(nameof(ListenerCount));
-            OnPropertyChanged(nameof(ListenerCountText));
             OnPropertyChanged(nameof(AllFilterText));
         }
 

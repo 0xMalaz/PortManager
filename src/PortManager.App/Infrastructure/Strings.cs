@@ -41,11 +41,9 @@ public static class Strings
     public static string ShowAllListeners => T("Show all listeners", "Tüm portları göster");
     public static string ShowDevListeners => T("Show development listeners", "Geliştirme portlarını göster");
     public static string ShowOtherListeners => T("Show other listeners", "Diğer portları göster");
-    public static string SortedByPort => T("Sorted by port", "Porta göre sıralı");
     public static string ActiveHeader => T("ACTIVE", "AKTİF");
     public static string ActiveTcpListeners => T("Active TCP listeners", "Aktif TCP portları");
     public static string KillProcessUsingPortFormat => T("Kill process using port {0}", "{0} portunu kullanan process'i sonlandır");
-    public static string ListeningCount(int count) => T($"{count} listening", $"{count} dinlemede");
     public static string AllFilter(int count) => T($"All  {count}", $"Tümü  {count}");
     public static string DevFilter(int count) => $"Dev  {count}";
     public static string OtherFilter(int count) => T($"Other  {count}", $"Diğer  {count}");
