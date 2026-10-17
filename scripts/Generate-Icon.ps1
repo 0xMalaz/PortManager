@@ -1,4 +1,5 @@
 param(
+    [string]$SourceDirectory = (Join-Path $PSScriptRoot "..\assets\icon"),
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\src\PortManager.App\Assets\PortManager.ico")
 )
 
@@ -7,88 +8,77 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Drawing
 
-function New-RoundedRectanglePath {
-    param(
-        [System.Drawing.RectangleF]$Rectangle,
-        [float]$Radius
-    )
+# Converts a PNG into a 32-bit ICO DIB: BITMAPINFOHEADER, bottom-up BGRA rows, then a 1-bit AND mask.
+# Small frames are stored this way because some ICO readers only decode PNG frames at 256 px.
+function ConvertTo-IconBitmap {
+    param([byte[]]$PngBytes, [int]$Size)
 
-    $diameter = $Radius * 2
-    $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $path.AddArc($Rectangle.X, $Rectangle.Y, $diameter, $diameter, 180, 90)
-    $path.AddArc($Rectangle.Right - $diameter, $Rectangle.Y, $diameter, $diameter, 270, 90)
-    $path.AddArc($Rectangle.Right - $diameter, $Rectangle.Bottom - $diameter, $diameter, $diameter, 0, 90)
-    $path.AddArc($Rectangle.X, $Rectangle.Bottom - $diameter, $diameter, $diameter, 90, 90)
-    $path.CloseFigure()
-    return $path
-}
-
-function New-PortManagerPng {
-    param([int]$Size)
-
-    $bitmap = [System.Drawing.Bitmap]::new($Size, $Size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $stream = [System.IO.MemoryStream]::new()
+    $pngStream = [System.IO.MemoryStream]::new($PngBytes)
+    $bitmap = [System.Drawing.Bitmap]::new($pngStream)
+    $output = [System.IO.MemoryStream]::new()
+    $writer = [System.IO.BinaryWriter]::new($output)
 
     try {
-        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $writer.Write([uint32]40)
+        $writer.Write([int32]$Size)
+        $writer.Write([int32]($Size * 2))
+        $writer.Write([uint16]1)
+        $writer.Write([uint16]32)
+        $writer.Write([uint32]0)
+        $writer.Write([uint32]0)
+        $writer.Write([int32]0)
+        $writer.Write([int32]0)
+        $writer.Write([uint32]0)
+        $writer.Write([uint32]0)
 
-        $inset = [Math]::Max(1.0, $Size * 0.04)
-        $bounds = [System.Drawing.RectangleF]::new(
-            [single]$inset,
-            [single]$inset,
-            [single]($Size - (2 * $inset)),
-            [single]($Size - (2 * $inset)))
-        $path = New-RoundedRectanglePath -Rectangle $bounds -Radius ([single]($Size * 0.22))
-        $background = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 99, 91, 255))
-
+        $bounds = [System.Drawing.Rectangle]::new(0, 0, $Size, $Size)
+        $data = $bitmap.LockBits($bounds, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         try {
-            $graphics.FillPath($background, $path)
+            $row = [byte[]]::new($Size * 4)
+            for ($y = $Size - 1; $y -ge 0; $y--) {
+                [System.Runtime.InteropServices.Marshal]::Copy([IntPtr]($data.Scan0.ToInt64() + ($y * $data.Stride)), $row, 0, $row.Length)
+                $writer.Write($row)
+            }
         }
         finally {
-            $background.Dispose()
-            $path.Dispose()
+            $bitmap.UnlockBits($data)
         }
 
-        $lineWidth = [single][Math]::Max(1.4, $Size * 0.085)
-        $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::White, $lineWidth)
-        $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-        $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-
-        try {
-            $trunkX = [single]($Size * 0.34)
-            $startX = [single]($Size * 0.36)
-            $endX = [single]($Size * 0.69)
-            $topY = [single]($Size * 0.31)
-            $middleY = [single]($Size * 0.50)
-            $bottomY = [single]($Size * 0.69)
-
-            $graphics.DrawLine($pen, $trunkX, $topY, $trunkX, $bottomY)
-            $graphics.DrawLine($pen, $startX, $topY, $endX, $topY)
-            $graphics.DrawLine($pen, $startX, $middleY, $endX, $middleY)
-            $graphics.DrawLine($pen, $startX, $bottomY, $endX, $bottomY)
-        }
-        finally {
-            $pen.Dispose()
-        }
-
-        $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
-        return $stream.ToArray()
+        # Alpha carries transparency, so the AND mask is all zeros; rows are padded to 32 bits.
+        $maskStride = [int]([Math]::Ceiling($Size / 32.0) * 4)
+        $writer.Write([byte[]]::new($maskStride * $Size))
+        $writer.Flush()
+        return $output.ToArray()
     }
     finally {
-        $stream.Dispose()
-        $graphics.Dispose()
+        $writer.Dispose()
         $bitmap.Dispose()
+        $pngStream.Dispose()
     }
 }
 
+# Packs the hand-tuned PNG renders from assets/icon into one multi-resolution ICO.
+# Each size is drawn separately (16/20/24 come from pixel-grid SVGs), so nothing is resampled here.
+# Frames below 256 px are stored as bitmaps and the 256 px frame as PNG.
 $sizes = @(16, 20, 24, 32, 48, 64, 256)
 $images = foreach ($size in $sizes) {
+    $path = Join-Path $SourceDirectory "PortManager-$size.png"
+    $bytes = [System.IO.File]::ReadAllBytes([System.IO.Path]::GetFullPath($path))
+
+    # PNG IHDR stores big-endian width and height at offsets 16 and 20.
+    $width = ([int]$bytes[16] -shl 24) -bor ([int]$bytes[17] -shl 16) -bor ([int]$bytes[18] -shl 8) -bor [int]$bytes[19]
+    $height = ([int]$bytes[20] -shl 24) -bor ([int]$bytes[21] -shl 16) -bor ([int]$bytes[22] -shl 8) -bor [int]$bytes[23]
+    if ($width -ne $size -or $height -ne $size) {
+        throw "$path is ${width}x${height}; expected ${size}x${size}."
+    }
+
+    if ($size -lt 256) {
+        $bytes = ConvertTo-IconBitmap -PngBytes $bytes -Size $size
+    }
+
     [PSCustomObject]@{
         Size = $size
-        Bytes = New-PortManagerPng -Size $size
+        Bytes = $bytes
     }
 }
 

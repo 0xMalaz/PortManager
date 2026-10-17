@@ -21,7 +21,8 @@ public sealed class TrayIconService : IDisposable
         }
 
         using (resource.Stream)
-        using (var sourceIcon = new Icon(resource.Stream))
+        // Request the tray size so Windows uses the pixel-tuned 16/20/24 px frame instead of downscaling 32 px.
+        using (var sourceIcon = new Icon(resource.Stream, Forms.SystemInformation.SmallIconSize))
         {
             _icon = (Icon)sourceIcon.Clone();
         }
