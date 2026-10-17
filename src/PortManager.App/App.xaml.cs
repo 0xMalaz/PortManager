@@ -69,8 +69,6 @@ public partial class App : System.Windows.Application
 
         _trayIcon = new TrayIconService(_startupRegistration.IsEnabled);
         _trayIcon.ToggleRequested += (_, _) => Dispatcher.Invoke(TogglePopup);
-        _trayIcon.OpenRequested += (_, _) => Dispatcher.Invoke(ShowPopup);
-        _trayIcon.RefreshRequested += (_, _) => Dispatcher.Invoke(() => _ = _viewModel.RefreshAsync());
         _trayIcon.StartupToggleRequested += OnStartupToggleRequested;
         _trayIcon.ExitRequested += (_, _) => Dispatcher.Invoke(RequestShutdown);
         _updates = new UpdateCoordinator(new VelopackAppUpdater(), RequestShutdown);

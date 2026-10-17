@@ -65,7 +65,6 @@
                 <Button Grid.Column="3"
                         Style="{StaticResource IconButtonStyle}"
                         Command="{Binding RefreshCommand}"
-                        ToolTip="Refresh active ports"
                         AutomationProperties.Name="Refresh active ports">
                     <TextBlock Text="&#xE72C;"
                                FontFamily="Segoe MDL2 Assets"
@@ -100,7 +99,6 @@
                                  BorderThickness="0"
                                  FontFamily="Segoe UI Variable Text, Segoe UI"
                                  FontSize="11"
-                                 ToolTip="Search by port, service, framework, PID, process, or address"
                                  AutomationProperties.Name="Search ports or services" />
                         <TextBlock Text="Port, service or PID..."
                                    IsHitTestVisible="False"
@@ -138,7 +136,6 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            ToolTip="Sorted by port"
                             AutomationProperties.Name="Sorted by port">
                     <TextBlock Text="&#xE71C;"
                                FontFamily="Segoe MDL2 Assets"
@@ -253,8 +250,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Orientation="Horizontal"
-                                            VerticalAlignment="Center"
-                                            ToolTip="{Binding DetailsToolTip}">
+                                            VerticalAlignment="Center">
                                     <Ellipse Width="5" Height="5" Margin="1,0,6,0">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse">
@@ -275,8 +271,7 @@
 
                                 <StackPanel Grid.Column="1"
                                             Margin="0,0,7,0"
-                                            VerticalAlignment="Center"
-                                            ToolTip="{Binding DetailsToolTip}">
+                                            VerticalAlignment="Center">
                                     <TextBlock Text="{Binding ServiceName}"
                                                FontSize="11"
                                                FontWeight="SemiBold"
@@ -310,7 +305,6 @@
                                 <TextBlock Grid.Column="2"
                                            Margin="0,0,5,0"
                                            VerticalAlignment="Center"
-                                           ToolTip="{Binding LastActiveToolTip}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontFamily="Cascadia Mono, Consolas"
                                            FontSize="8"
@@ -331,8 +325,6 @@
                                         Style="{StaticResource KillButtonStyle}"
                                         Command="{Binding DataContext.KillCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         CommandParameter="{Binding}"
-                                        ToolTip="{Binding KillToolTip}"
-                                        ToolTipService.ShowOnDisabled="True"
                                         AutomationProperties.Name="{Binding Port, StringFormat=Kill process using port {0}}" />
                             </Grid>
                         </DataTemplate>

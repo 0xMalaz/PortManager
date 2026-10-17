@@ -68,35 +68,6 @@ public sealed record PortListener(
     public string FrameworkDisplay => string.IsNullOrWhiteSpace(FrameworkName)
         ? "—"
         : FrameworkName;
-
-    public string LastActiveToolTip
-    {
-        get
-        {
-            var localTime = LastActiveUtc.ToLocalTime().ToString("g");
-            return LastActivitySource switch
-            {
-                PortActivitySource.ObservedConnection => $"Last observed TCP connection: {localTime}",
-                PortActivitySource.ProcessStart => $"No connection observed yet; using process start: {localTime}",
-                _ => $"No connection observed yet; first seen: {localTime}"
-            };
-        }
-    }
-
-    public string DetailsToolTip
-    {
-        get
-        {
-            var details = $"{ProcessName} · PID {ProcessId}\n{AddressDisplay}";
-            return IsProtected && !string.IsNullOrWhiteSpace(ProtectionReason)
-                ? $"{details}\n{ProtectionReason}"
-                : details;
-        }
-    }
-
-    public string KillToolTip => IsProtected
-        ? ProtectionReason ?? "This process is protected."
-        : $"Terminate {ProcessName} and its child processes";
 }
 
 internal static class PortActivityFormatter
