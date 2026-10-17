@@ -33,7 +33,11 @@ Only one instance can run at a time. To test a Debug build while your normal cop
 - Keep pull requests focused on one change, and add or update tests in `tests/PortManager.Tests` for behaviour you change.
 - Match the surrounding code style: nullable reference types are enabled, and file-scoped namespaces and descriptive names are used throughout.
 - Native Windows calls live in `src/PortManager.App/Native`. Keep P/Invoke signatures there and expose small, testable helpers.
-- Anything that can terminate a process must keep the guarantees in the README's [Safety model](README.md#safety-model).
+- Anything that can terminate a process must keep these guarantees:
+  - PID 0, PID 4, Port Manager itself, critical Windows processes and anything under the Windows directory stay read-only.
+  - The confirmation shows the process, PID and every listener that will be affected.
+  - PID, process start time and the selected listener are checked again right before termination.
+  - Success is only reported once the port is no longer listening.
 - Port Manager runs in the tray all day. Avoid adding work to the background refresh path, and avoid timers or animations that run while the popup is hidden.
 - Make sure `dotnet build` produces no new warnings and `dotnet test` passes before opening a pull request.
 

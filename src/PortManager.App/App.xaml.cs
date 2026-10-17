@@ -80,14 +80,6 @@ public partial class App : System.Windows.Application
         _trayIcon.UpdateRequested += (_, _) => Dispatcher.Invoke(CheckForUpdates);
 
         _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
-        _viewModel.PropertyChanged += (_, propertyChanged) =>
-        {
-            if (propertyChanged.PropertyName == nameof(PopupWindowViewModel.ListenerCount))
-            {
-                _trayIcon.SetListenerCount(_viewModel.ListenerCount);
-            }
-        };
-
         _viewModel.IsViewVisible = false;
         _popupWindow.IsVisibleChanged += (_, _) => OnPopupVisibilityChanged();
         _refreshTimer = new DispatcherTimer
@@ -98,7 +90,6 @@ public partial class App : System.Windows.Application
         _refreshTimer.Start();
 
         await _viewModel.RefreshAsync();
-        _trayIcon.SetListenerCount(_viewModel.ListenerCount);
 
         if (!eventArgs.Args.Contains("--startup", StringComparer.OrdinalIgnoreCase))
         {

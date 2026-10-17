@@ -74,13 +74,6 @@ public sealed class TrayIconService : IDisposable
 
     public void SetStartupEnabled(bool enabled) => _startWithWindowsItem.Checked = enabled;
 
-    public void SetListenerCount(int count)
-    {
-        _notifyIcon.Text = count == 1
-            ? "Port Manager — 1 TCP listener"
-            : $"Port Manager — {count} TCP listeners";
-    }
-
     public void Dispose()
     {
         if (_disposed)
