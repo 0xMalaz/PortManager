@@ -1,3 +1,5 @@
+<img src="assets/icon/PortManager-256.png" alt="" width="96" align="right">
+
 # Port Manager
 
 [![Latest release](https://img.shields.io/github/v/release/0xMalaz/PortManager)](https://github.com/0xMalaz/PortManager/releases/latest)
@@ -106,7 +108,8 @@ src/PortManager.App/        WPF tray application
   ViewModels/  Views/       Popup window (MVVM)
 tests/PortManager.Tests/    MSTest unit and integration tests
 tests/PortManager.TestHost/ Helper process that opens TCP listeners for integration tests
-scripts/                    Icon generation
+assets/icon/                Icon source art (SVG masters, per-size PNGs, social preview)
+scripts/                    Icon packing, release build and publishing
 ```
 
 ## Contributing
