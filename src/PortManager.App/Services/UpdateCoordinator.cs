@@ -4,8 +4,10 @@ internal enum UpdateStage { Idle, Available, Checking, Downloading, NoUpdate, Un
 internal sealed record UpdateStatus(UpdateStage Stage, string Message, int Progress = 0, string? Version = null);
 
 /// <summary>Only RunAsync downloads or applies; CheckInBackgroundAsync only looks. UI subscribers run on the caller's synchronization context.</summary>
-internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown) : IDisposable
+internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown, TimeProvider? time = null) : IDisposable
 {
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private DateTimeOffset? _lastCheckedAt;
     private readonly CancellationTokenSource _lifetime = new();
     private int _running;
     private bool _disposed;
@@ -31,6 +33,7 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown) : 
             if (updater.PendingVersion is null)
             {
                 Report(new(UpdateStage.Checking, "Checking for updates…"));
+                _lastCheckedAt = _time.GetUtcNow();
                 var version = await updater.CheckAsync(token);
                 token.ThrowIfCancellationRequested();
                 if (version is null)
@@ -70,9 +73,13 @@ internal sealed class UpdateCoordinator(IAppUpdater updater, Action shutdown) : 
     }
 
     /// <summary>Silently looks for a newer release. Reports only when one is found; failures are ignored.</summary>
-    public Task CheckInBackgroundAsync()
+    /// <param name="minimumInterval">Skip when the feed was already checked this recently, keeping well under GitHub's rate limit.</param>
+    public Task CheckInBackgroundAsync(TimeSpan minimumInterval = default)
     {
-        if (_disposed || !updater.CanUpdate || Interlocked.CompareExchange(ref _running, 1, 0) != 0) return Task.CompletedTask;
+        if (_disposed || !updater.CanUpdate) return Task.CompletedTask;
+        if (_lastCheckedAt is { } last && _time.GetUtcNow() - last < minimumInterval) return Task.CompletedTask;
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return Task.CompletedTask;
+        if (updater.PendingVersion is null) _lastCheckedAt = _time.GetUtcNow();
         return _backgroundCheck = CheckCoreAsync();
     }
 

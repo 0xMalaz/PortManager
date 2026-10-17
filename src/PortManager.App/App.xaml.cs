@@ -83,6 +83,11 @@ public partial class App : System.Windows.Application
         _updatePollTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(8) };
         _updatePollTimer.Tick += async (_, _) => await _updates.CheckInBackgroundAsync();
         _updatePollTimer.Start();
+        _trayIcon.MenuOpening += (_, _) =>
+        {
+            if (_updates.Status.Stage != UpdateStage.Available)
+                _ = _updates.CheckInBackgroundAsync(TimeSpan.FromMinutes(15));
+        };
 
         _singleInstance.ActivationRequested += (_, _) => Dispatcher.BeginInvoke(ShowPopup);
         _viewModel.IsViewVisible = false;
