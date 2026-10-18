@@ -104,7 +104,7 @@ public sealed class ThemeServiceTests
     {
         var background = ((SolidColorBrush)resources["WindowBackgroundBrush"]).Color;
         Assert.AreEqual(isLight ? Color.FromRgb(0xF5, 0xF7, 0xFB) : Color.FromRgb(0x11, 0x13, 0x18), background);
-        Assert.AreEqual(isLight ? "E708" : "E706", resources["ThemeToggleGlyph"]);
+        Assert.AreEqual(isLight ? "" : "", resources["ThemeToggleGlyph"]);
         Assert.AreEqual(isLight ? Strings.SwitchToDarkTheme : Strings.SwitchToLightTheme, resources["ThemeToggleName"]);
     }
 }
