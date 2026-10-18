@@ -23,6 +23,8 @@ public partial class PopupWindow : Window
 
     internal bool DisableAutoHide { get; set; }
 
+    public event EventHandler? ThemeToggleRequested;
+
     public void ShowNearTray()
     {
         if (!IsVisible)
@@ -52,6 +54,9 @@ public partial class PopupWindow : Window
             Hide();
         }
     }
+
+    private void OnThemeToggleClick(object sender, RoutedEventArgs eventArgs) =>
+        ThemeToggleRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
     {
