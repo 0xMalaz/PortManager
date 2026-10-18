@@ -2,6 +2,7 @@ using System.IO;
 using System.Security;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using PortManager.Infrastructure;
 
@@ -20,21 +21,25 @@ public sealed class ThemeService : IDisposable
     internal const string ThemeValueName = "Theme";
     private const string MoonGlyph = "";
     private const string SunGlyph = "";
-    private readonly System.Windows.Application _application;
+    private readonly ResourceDictionary _resources;
+    private readonly Dispatcher _dispatcher;
     private readonly string _preferencesPath;
+    private readonly Func<bool> _systemIsLight;
     private ThemePreference _preference;
     private bool? _isLight;
     private bool _disposed;
 
     public ThemeService(System.Windows.Application application)
-        : this(application, StartupRegistrationService.PreferencesPath)
+        : this(application.Resources, application.Dispatcher, StartupRegistrationService.PreferencesPath, IsSystemLightTheme)
     {
     }
 
-    internal ThemeService(System.Windows.Application application, string preferencesPath)
+    internal ThemeService(ResourceDictionary resources, Dispatcher dispatcher, string preferencesPath, Func<bool> systemIsLight)
     {
-        _application = application;
+        _resources = resources;
+        _dispatcher = dispatcher;
         _preferencesPath = preferencesPath;
+        _systemIsLight = systemIsLight;
         _preference = LoadPreference(preferencesPath);
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         ApplyCurrentTheme();
@@ -92,13 +97,13 @@ public sealed class ThemeService : IDisposable
 
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs eventArgs)
     {
-        _application.Dispatcher.BeginInvoke(ApplyCurrentTheme);
+        _dispatcher.BeginInvoke(ApplyCurrentTheme);
     }
 
     private void ApplyCurrentTheme()
     {
         // UserPreferenceChanged fires for many unrelated settings; replacing the brushes forces a full redraw.
-        var isLight = ResolveIsLight(_preference, IsSystemLightTheme);
+        var isLight = ResolveIsLight(_preference, _systemIsLight);
         if (_isLight == isLight)
         {
             return;
@@ -106,8 +111,8 @@ public sealed class ThemeService : IDisposable
 
         _isLight = isLight;
 
-        _application.Resources["ThemeToggleGlyph"] = isLight ? MoonGlyph : SunGlyph;
-        _application.Resources["ThemeToggleName"] = isLight ? Strings.SwitchToDarkTheme : Strings.SwitchToLightTheme;
+        _resources["ThemeToggleGlyph"] = isLight ? MoonGlyph : SunGlyph;
+        _resources["ThemeToggleName"] = isLight ? Strings.SwitchToDarkTheme : Strings.SwitchToLightTheme;
 
         SetBrush("WindowBackgroundBrush", isLight ? "#F5F7FB" : "#111318");
         SetBrush("SurfaceBrush", isLight ? "#FFFFFF" : "#1B1E25");
@@ -134,6 +139,6 @@ public sealed class ThemeService : IDisposable
     private void SetBrush(string resourceKey, string colorValue)
     {
         var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorValue);
-        _application.Resources[resourceKey] = new SolidColorBrush(color);
+        _resources[resourceKey] = new SolidColorBrush(color);
     }
 }
