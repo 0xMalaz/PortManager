@@ -59,6 +59,7 @@ public partial class App : System.Windows.Application
         {
             DataContext = _viewModel
         };
+        _popupWindow.ThemeToggleRequested += (_, _) => _themeService?.Toggle();
 
 #if DEBUG
         var executableName = System.IO.Path.GetFileNameWithoutExtension(Environment.ProcessPath);

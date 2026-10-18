@@ -35,6 +35,8 @@ public static class Strings
         T($"Port Manager {version} is available.", $"Port Manager {version} kullanılabilir.");
 
     // Popup
+    public static string SwitchToDarkTheme => T("Switch to dark theme", "Koyu temaya geç");
+    public static string SwitchToLightTheme => T("Switch to light theme", "Açık temaya geç");
     public static string RefreshActivePorts => T("Refresh active ports", "Aktif portları yenile");
     public static string SearchPortsOrServices => T("Search ports or services", "Port veya servis ara");
     public static string SearchPlaceholder => T("Port, service or PID...", "Port, servis veya PID...");
